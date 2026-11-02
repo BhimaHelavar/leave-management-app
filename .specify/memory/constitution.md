@@ -1,0 +1,85 @@
+<!--
+Sync Impact Report (temporary; remove before commit)
+Version change: (template) -> 1.0.0
+Modified principles: none (initial adoption)
+Added sections: Core Principles I-VIII, Technology and Security Constraints, Development Workflow, Governance
+Removed sections: none
+Deferred TODOs: none
+Source: CLAUDE.md and ai/steering/{product,tech,structure,security,learning}.md. No new policy added.
+-->
+# Leave Management (LMS) Constitution
+
+This constitution distills the standing rules of the project. The detailed rules live in
+`CLAUDE.md` and `ai/steering/`; those files stay the single source of truth for detail.
+If this file and a steering file disagree, stop and ask the owner.
+
+## Core Principles
+
+### I. The Server Enforces Every Rule
+Every business and authorization rule MUST be enforced in the API. The Angular app only shapes
+the screen. Database constraints stay as the second line of defence.
+Rationale: a browser can be bypassed; only the server is trusted. (`security.md` rules 1, 8, 9)
+
+### II. Security by Default
+Every endpoint MUST require a signed-in user unless it is marked `AllowAnonymous` on purpose.
+Authorization has two layers: role policies and resource rules. A record the caller may not see
+MUST return 404, not 403. Errors MUST be `ProblemDetails` with no stack traces or SQL. Secrets
+MUST NOT be in the repo, and `.env` files MUST NOT be read or printed. Every apply, approve,
+reject, cancel and balance change MUST write an append-only audit row in the same transaction.
+Detail: `ai/steering/security.md` (14 rules; a review fails if one is broken).
+
+### III. Clean Architecture Dependency Rule
+Dependencies point inward: Api and Infrastructure -> Application -> Domain. Domain MUST NOT
+reference EF Core, ASP.NET or any package. Changes stay small and in the layer where they belong.
+Code in one schema module MUST NOT read another module's tables.
+Detail: `ai/steering/structure.md`.
+
+### IV. Correct Dates and Time
+Leave days MUST be `DateOnly`. Timestamps MUST be UTC. "Now" MUST come from `TimeProvider`,
+never `DateTime.UtcNow`.
+
+### V. Migrations Are Append-Only
+An applied migration MUST NOT be edited; add a new one. The generated SQL MUST be read first.
+
+### VI. Spec-Driven Development
+Feature code MUST NOT be written without an approved spec in `ai/specs/<id>-<name>/`
+(requirements, then design, then tasks), with owner approval after each. Tasks are done one at a
+time, in order. If the spec is wrong, stop, fix it, and get approval again.
+
+### VII. Verify Before Claiming Done
+Before a task is called done, the build and the tests for the touched files MUST be run and the
+result reported. Anything not built, run or verified MUST be said plainly. A check that was not
+done MUST NOT be claimed. Detail: `ai/steering/tech.md`.
+
+### VIII. Ask First, Teach Always
+The agent MUST ask the owner before adding a NuGet or npm package, deleting data, dropping the
+database, or running anything destructive. This is also a learning project: explanations go
+plain words first (what, how, why, when), and each finished spec produces
+`ai/learning/<spec-id>.md`. The agent MUST NOT do the owner's teach-back or exercise.
+Detail: `ai/steering/learning.md`.
+
+## Technology and Security Constraints
+
+- Stack: .NET 10, EF Core 10, SQL Server, Angular 22 (standalone, Signals, zoneless).
+- Auth is JWT bearer with one switch (`Auth:Mode`); business code MUST NOT read it. Dev mode MUST
+  refuse to start outside Development.
+- Personal data is limited to name, email and role; audit and outbox rows hold ids and values only.
+- Commands given to the owner MUST work in Command Prompt or PowerShell on Windows.
+- Policy rules are the 15 accepted rules in `ai/steering/product.md`.
+
+## Development Workflow
+
+- Skills: `/spec-new`, `/spec-implement`, `/review`, `/learn`, `/status`. Spec Kit commands
+  (`/speckit-*`) may be used, but `ai/specs/` and its approval gates remain the project's record.
+- Each spec finishes with `/review`, `/learn` and `/status`; status lives in `ai/specs/INDEX.md`.
+- Steering files are loaded through `CLAUDE.md`; coding rules load from `.claude/rules/`.
+
+## Governance
+
+This constitution summarizes and does not override the steering files. Amendments require the
+owner's approval and a version bump: MAJOR for removing or redefining a principle, MINOR for a new
+principle or materially expanded guidance, PATCH for wording fixes. A change to a steering rule
+MUST be mirrored here in the same change. Every review (`/review`) MUST check compliance with
+these principles.
+
+**Version**: 1.0.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02
