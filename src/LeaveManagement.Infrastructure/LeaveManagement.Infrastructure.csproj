@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\LeaveManagement.Application\LeaveManagement.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 10.0.* picks the newest 10.0 patch release. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.*" />
+  </ItemGroup>
+
+</Project>

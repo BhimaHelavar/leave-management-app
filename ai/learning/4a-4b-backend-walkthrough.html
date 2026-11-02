@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LMS Back End Walkthrough</title>
+<style>
+:root{
+  --bg:#f7f8fa;--card:#fff;--ink:#1c2430;--mute:#5b6675;--line:#d9dee6;
+  --domain:#2f9e6b;--app:#3b82c4;--infra:#d98a1f;--api:#8b5cc9;--db:#475569;
+  --ok:#1f9d55;--bad:#d64545;--accent:#2563eb;--code:#eef1f5;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#12161c;--card:#1a2029;--ink:#e6ebf2;--mute:#9aa6b6;--line:#2c3542;--code:#232b36;--accent:#6ea0ff}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,Segoe UI,sans-serif}
+header{padding:2.5rem 1rem 1.5rem;max-width:62rem;margin:auto}
+h1{margin:0 0 .3rem;font-size:1.9rem}
+.sub{color:var(--mute);margin:0}
+nav{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+nav .in{max-width:62rem;margin:auto;padding:.5rem 1rem;display:flex;gap:.4rem;overflow-x:auto}
+nav a{white-space:nowrap;text-decoration:none;color:var(--ink);padding:.25rem .7rem;border:1px solid var(--line);border-radius:2rem;font-size:.85rem}
+nav a:hover{border-color:var(--accent);color:var(--accent)}
+main{max-width:62rem;margin:auto;padding:0 1rem 4rem}
+section{margin-top:2.5rem}
+h2{font-size:1.4rem;margin:0 0 .3rem}
+h3{font-size:1.05rem;margin:1.4rem 0 .3rem}
+.lead{color:var(--mute);margin:.2rem 0 1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:.7rem;padding:1rem 1.1rem;margin:.8rem 0}
+.why{border-left:4px solid var(--accent)}
+.warn{border-left:4px solid var(--infra)}
+code{background:var(--code);padding:.08rem .35rem;border-radius:.3rem;font-size:.88em}
+button{font:inherit;font-size:.9rem;padding:.4rem .85rem;border-radius:.5rem;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+button.alt{background:transparent;color:var(--accent)}
+button:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.6rem 0}
+svg{max-width:100%;height:auto;display:block}
+svg text{fill:var(--ink);font-family:system-ui,sans-serif}
+.t-mute{fill:var(--mute)!important}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{border:1px solid var(--line);padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{background:var(--code)}
+.tag{display:inline-block;font-size:.72rem;padding:.05rem .5rem;border-radius:1rem;color:#fff;vertical-align:middle}
+.tag.d{background:var(--domain)}.tag.a{background:var(--app)}.tag.i{background:var(--infra)}.tag.p{background:var(--api)}
+details{background:var(--card);border:1px solid var(--line);border-radius:.6rem;margin:.5rem 0;padding:.1rem .9rem}
+summary{cursor:pointer;padding:.6rem 0;font-weight:600}
+.ledger td.pos{color:var(--ok)}.ledger td.neg{color:var(--bad)}
+.msg{min-height:1.6rem;font-weight:600}
+.msg.ok{color:var(--ok)}.msg.bad{color:var(--bad)}
+.big{font-size:2rem;font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+.pulse{animation:pulse 1.6s infinite}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Back-end walkthrough: the <code>src\</code> folder</h1>
+  <p class="sub">Increments 4a (scaffold) and 4b (database). Study note with animated diagrams. Written from reading the code; nothing here was built or run.</p>
+</header>
+<nav><div class="in">
+  <a href="#layers">1 Layers</a><a href="#files">2 Files</a><a href="#ledger">3 Ledger</a><a href="#overlap">4 Overlap</a>
+  <a href="#outbox">5 Outbox</a><a href="#startup">6 Startup</a><a href="#why">7 Why</a><a href="#qa">8 Interview Q&amp;A</a><a href="#rebuild">9 Rebuild</a>
+</div></nav>
+<main>
+
+<!-- 1 LAYERS -->
+<section id="layers">
+  <h2>1. The four layers</h2>
+  <p class="lead">What it is: one solution, four projects. How it works: a request goes inward through the layers; code may only depend inward. Press the button to watch one.</p>
+  <div class="card">
+    <svg viewBox="0 0 760 250" role="img" aria-label="Four layers: Api, Infrastructure, Application, Domain, with a request travelling to the database">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+      <g id="L-api"><rect x="10" y="40" width="165" height="110" rx="10" fill="var(--api)" opacity=".18" stroke="var(--api)" stroke-width="2"/><text x="92" y="75" text-anchor="middle" font-weight="700">Api</text><text x="92" y="98" text-anchor="middle" class="t-mute" font-size="12">Program.cs, /health</text><text x="92" y="116" text-anchor="middle" class="t-mute" font-size="12">composition root</text></g>
+      <g id="L-inf"><rect x="195" y="40" width="165" height="110" rx="10" fill="var(--infra)" opacity=".18" stroke="var(--infra)" stroke-width="2"/><text x="277" y="75" text-anchor="middle" font-weight="700">Infrastructure</text><text x="277" y="98" text-anchor="middle" class="t-mute" font-size="12">EF Core, SQL Server</text><text x="277" y="116" text-anchor="middle" class="t-mute" font-size="12">seeders, migrations</text></g>
+      <g id="L-app"><rect x="380" y="40" width="165" height="110" rx="10" fill="var(--app)" opacity=".18" stroke="var(--app)" stroke-width="2"/><text x="462" y="75" text-anchor="middle" font-weight="700">Application</text><text x="462" y="98" text-anchor="middle" class="t-mute" font-size="12">use cases (empty now)</text><text x="462" y="116" text-anchor="middle" class="t-mute" font-size="12">arrives in 4d</text></g>
+      <g id="L-dom"><rect x="565" y="40" width="185" height="110" rx="10" fill="var(--domain)" opacity=".18" stroke="var(--domain)" stroke-width="2"/><text x="657" y="75" text-anchor="middle" font-weight="700">Domain</text><text x="657" y="98" text-anchor="middle" class="t-mute" font-size="12">entities, enums, rules</text><text x="657" y="116" text-anchor="middle" class="t-mute" font-size="12">depends on NOTHING</text></g>
+      <g style="color:var(--mute)" stroke="currentColor" stroke-width="2" fill="none">
+        <line x1="176" y1="195" x2="194" y2="195" marker-end="url(#ar)"/><line x1="361" y1="195" x2="379" y2="195" marker-end="url(#ar)"/><line x1="546" y1="195" x2="564" y2="195" marker-end="url(#ar)"/>
+      </g>
+      <text x="380" y="228" text-anchor="middle" class="t-mute" font-size="13">dependency arrows point inward: Api -&gt; Infrastructure -&gt; Application -&gt; Domain</text>
+      <circle id="pkt" r="8" cx="-20" cy="95" fill="var(--accent)" opacity="0"/>
+      <text id="pktLabel" x="10" y="20" font-size="13" class="t-mute"></text>
+    </svg>
+    <div class="row"><button id="runReq">Send GET /health through the layers</button><button class="alt" id="runBad">Try: Domain uses EF Core</button></div>
+    <div class="msg" id="layerMsg"></div>
+  </div>
+  <div class="card why"><b>Why:</b> business rules ("a balance never goes below zero") live in the centre and know nothing about SQL Server or HTTP, so you can test them alone and swap the outside. <b>Trade-off:</b> four projects is more ceremony than one; fine for a CRUD tool, worth it for real rules.
+  <br><b>Where we are:</b> only Domain and Infrastructure have real content. Application is an empty shell, Api has one endpoint.</div>
+</section>
+
+<!-- 2 FILES -->
+<section id="files">
+  <h2>2. Every file, what it is, why it matters</h2>
+  <p class="lead">Click a layer to filter the table.</p>
+  <div class="row" id="filters">
+    <button data-f="all">All</button><button class="alt" data-f="root">Solution</button><button class="alt" data-f="d">Domain</button>
+    <button class="alt" data-f="a">Application</button><button class="alt" data-f="i">Infrastructure</button><button class="alt" data-f="p">Api</button>
+  </div>
+  <div class="card" style="overflow-x:auto">
+  <table id="ft">
+    <tr><th>Layer</th><th>File</th><th>What and why</th></tr>
+    <tr data-l="root"><td>Solution</td><td><code>LeaveManagement.slnx</code></td><td>List of the four projects. One command builds all in order.</td></tr>
+    <tr data-l="root"><td>Solution</td><td><code>Directory.Build.props</code></td><td>Settings for every project: net10.0, Nullable, ImplicitUsings, <b>warnings are errors</b>. NU1901-1904 (new package vulnerabilities) stay warnings so the build does not break overnight.</td></tr>
+    <tr data-l="d"><td><span class="tag d">Domain</span></td><td><code>Domain.csproj</code></td><td>Empty on purpose: no references means the compiler itself stops Domain using EF Core or ASP.NET.</td></tr>
+    <tr data-l="d"><td><span class="tag d">Domain</span></td><td><code>Enums.cs</code></td><td>Role, AccrualMode, LedgerEntryType, HalfDay, LeaveStatus, Slot. Stored as readable text in SQL.</td></tr>
+    <tr data-l="d"><td><span class="tag d">Domain</span></td><td><code>People.cs</code></td><td>Location, Employee (ManagerId, JoinDate, IsActive, ExternalId), EmployeeRole. Soft delete via IsActive.</td></tr>
+    <tr data-l="d"><td><span class="tag d">Domain</span></td><td><code>Balances.cs</code></td><td>LeaveType (policy as data), Holiday, LeaveBalance (current), LeaveBalanceEntry (ledger). RowVersion = optimistic concurrency.</td></tr>
+    <tr data-l="d"><td><span class="tag d">Domain</span></td><td><code>Leave.cs</code></td><td>LeaveRequest (DaysCount is a snapshot), LeaveRequestDay (one row per half-day), IdempotencyKey (double-click safety).</td></tr>
+    <tr data-l="d"><td><span class="tag d">Domain</span></td><td><code>Messaging.cs</code></td><td>OutboxMessage, ProcessedMessage, AuditEvent. Ids only, never names or emails.</td></tr>
+    <tr data-l="d"><td><span class="tag d">Domain</span></td><td><code>AssemblyMarker.cs</code></td><td>Empty class so tests and DI can point at this assembly.</td></tr>
+    <tr data-l="a"><td><span class="tag a">Application</span></td><td><code>DependencyInjection.cs</code></td><td><code>AddApplication()</code>, empty until 4d. Each layer registers itself so Program.cs stays short.</td></tr>
+    <tr data-l="i"><td><span class="tag i">Infra</span></td><td><code>DependencyInjection.cs</code></td><td>Reads the connection string, registers <code>LeaveDbContext</code>. Fails fast with a clear message if missing.</td></tr>
+    <tr data-l="i"><td><span class="tag i">Infra</span></td><td><code>Persistence\LeaveDbContext.cs</code></td><td>13 DbSets; every DateTime becomes <code>datetime2(3)</code> in UTC; loads all configurations automatically.</td></tr>
+    <tr data-l="i"><td><span class="tag i">Infra</span></td><td><code>Persistence\Configurations\*.cs</code></td><td>Fluent mapping: keys, lengths, precision, CHECK constraints, indexes, foreign keys (all Restrict, no cascade).</td></tr>
+    <tr data-l="i"><td><span class="tag i">Infra</span></td><td><code>EnumColumn.cs</code></td><td><code>.AsText()</code> and <code>InList&lt;T&gt;()</code> build the CHECK list from the C# enum, so it cannot drift.</td></tr>
+    <tr data-l="i"><td><span class="tag i">Infra</span></td><td><code>UtcDateTimeConverters.cs</code></td><td>SQL datetime2 has no time zone; this stamps values read back as UTC (avoids the +5:30 bug).</td></tr>
+    <tr data-l="i"><td><span class="tag i">Infra</span></td><td><code>DatabaseInitializer.cs</code></td><td>Migrate, then reference data, then demo data. Development only (least privilege in production).</td></tr>
+    <tr data-l="i"><td><span class="tag i">Infra</span></td><td><code>ReferenceDataSeeder.cs</code></td><td>Bengaluru and the 7 leave types. Idempotent; runs in every environment.</td></tr>
+    <tr data-l="i"><td><span class="tag i">Infra</span></td><td><code>DevSeeder.cs</code></td><td>Fictional people (Meera, Hema, Arjun, Asha, Ravi, Sneha) and opening balances. Local only.</td></tr>
+    <tr data-l="i"><td><span class="tag i">Infra</span></td><td><code>Migrations\*</code></td><td>Generated: Initial (Up/Down), Designer, model snapshot. Never edit an applied one.</td></tr>
+    <tr data-l="p"><td><span class="tag p">Api</span></td><td><code>Program.cs</code></td><td>The whole startup in order (see section 6).</td></tr>
+    <tr data-l="p"><td><span class="tag p">Api</span></td><td><code>appsettings.json</code></td><td>Non-secret settings: log levels, Auth:Mode, Cors:AllowedOrigin.</td></tr>
+    <tr data-l="p"><td><span class="tag p">Api</span></td><td><code>appsettings.Development.json</code></td><td>LocalDB connection string using your Windows login (no password in the file).</td></tr>
+    <tr data-l="p"><td><span class="tag p">Api</span></td><td><code>launchSettings.json</code></td><td>F5 / dotnet run profile: port 5000, Development.</td></tr>
+    <tr data-l="p"><td><span class="tag p">Api</span></td><td><code>Dockerfile</code></td><td>Multi-stage: SDK image builds, small aspnet image runs as non-root.</td></tr>
+  </table>
+  </div>
+</section>
+
+<!-- 3 LEDGER -->
+<section id="ledger">
+  <h2>3. Ledger plus balance</h2>
+  <p class="lead">Like a bank: the ledger explains <i>why</i>, the balance answers <i>how much</i>. Press the buttons in order.</p>
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <b>LeaveBalanceEntry</b> (ledger, never edited)
+        <table class="ledger" id="lt"><tr><th>Type</th><th>Days</th><th>Note</th></tr></table>
+      </div>
+      <div>
+        <b>LeaveBalance.Available</b> (fast copy)
+        <div class="big" id="bal">0.0</div>
+        <div class="t-mute" style="color:var(--mute)">CHECK: <code>Available &gt;= 0</code></div>
+      </div>
+    </div>
+    <div class="row">
+      <button id="bGrant">1. Grant +12</button><button id="bDed">2. Apply for 3 days (Deduction -3)</button>
+      <button id="bRes">3. Manager rejects (Restore +3)</button><button class="alt" id="bBig">Try Deduction -20</button><button class="alt" id="bReset">Reset</button>
+    </div>
+    <div class="msg" id="ledMsg"></div>
+  </div>
+  <div class="card why"><b>Why two tables:</b> the ledger is the audit history; the balance is a quick read. A reconciliation query (sum of ledger vs Available) detects any disagreement. <b>Rejected:</b> a single counter column, which cannot explain itself.</div>
+</section>
+
+<!-- 4 OVERLAP -->
+<section id="overlap">
+  <h2>4. Overlap cannot happen</h2>
+  <p class="lead">Rule 13: a person cannot have two leaves on the same half-day. <code>LeaveRequestDay</code> has one row per half-day with a unique index on (EmployeeId, LeaveDate, Slot).</p>
+  <div class="card">
+    <svg viewBox="0 0 760 230" role="img" aria-label="Two requests racing to insert the same half-day row">
+      <rect x="10" y="20" width="170" height="60" rx="8" fill="var(--app)" opacity=".18" stroke="var(--app)"/><text x="95" y="48" text-anchor="middle" font-weight="700">Request A</text><text x="95" y="68" text-anchor="middle" class="t-mute" font-size="12">Mon 10th, AM</text>
+      <rect x="10" y="150" width="170" height="60" rx="8" fill="var(--infra)" opacity=".18" stroke="var(--infra)"/><text x="95" y="178" text-anchor="middle" font-weight="700">Request B</text><text x="95" y="198" text-anchor="middle" class="t-mute" font-size="12">Mon 10th, AM (same time)</text>
+      <rect x="470" y="40" width="280" height="150" rx="10" fill="var(--db)" opacity=".15" stroke="var(--db)" stroke-width="2"/>
+      <text x="610" y="62" text-anchor="middle" font-weight="700" font-size="14">leave.LeaveRequestDay</text>
+      <text x="610" y="80" text-anchor="middle" class="t-mute" font-size="11">UNIQUE (EmployeeId, LeaveDate, Slot)</text>
+      <rect id="slotRow" x="490" y="100" width="240" height="34" rx="5" fill="none" stroke="var(--line)" stroke-dasharray="4"/>
+      <text id="slotTxt" x="610" y="122" text-anchor="middle" font-size="13" class="t-mute">empty</text>
+      <circle id="pa" r="9" cx="190" cy="50" fill="var(--app)" opacity="0"/>
+      <circle id="pb" r="9" cx="190" cy="180" fill="var(--infra)" opacity="0"/>
+      <text id="ovRes" x="610" y="168" text-anchor="middle" font-size="13" font-weight="700"></text>
+    </svg>
+    <div class="row"><button id="bRace">Race A and B</button><button class="alt" id="bRaceReset">Reset</button></div>
+    <div class="msg" id="ovMsg"></div>
+  </div>
+  <div class="card why"><b>Why in the database:</b> a C# check "is there an overlap?" has a race window: both requests pass the check, then both insert. The unique index closes it. The code still checks first to give a friendly message.</div>
+</section>
+
+<!-- 5 OUTBOX -->
+<section id="outbox">
+  <h2>5. Transactional outbox</h2>
+  <p class="lead">How an approval triggers an email without ever losing it, or sending one for an approval that rolled back.</p>
+  <div class="card">
+    <svg viewBox="0 0 760 210" role="img" aria-label="Outbox: approval and message saved in one transaction, a worker sends later">
+      <rect x="10" y="30" width="300" height="150" rx="10" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
+      <text x="160" y="22" text-anchor="middle" font-size="12" class="t-mute">ONE database transaction</text>
+      <rect x="30" y="55" width="125" height="50" rx="6" fill="var(--app)" opacity=".2" stroke="var(--app)"/><text x="92" y="85" text-anchor="middle" font-size="13">Status=Approved</text>
+      <rect x="165" y="55" width="125" height="50" rx="6" fill="var(--infra)" opacity=".2" stroke="var(--infra)"/><text x="227" y="85" text-anchor="middle" font-size="13">OutboxMessage</text>
+      <rect id="commit" x="30" y="125" width="260" height="36" rx="6" fill="var(--ok)" opacity="0"/><text id="commitT" x="160" y="148" text-anchor="middle" font-size="13" fill="#fff" opacity="0" style="fill:#fff">COMMIT</text>
+      <rect x="380" y="55" width="150" height="50" rx="8" fill="var(--api)" opacity=".2" stroke="var(--api)"/><text x="455" y="85" text-anchor="middle" font-size="13">Background worker</text>
+      <rect x="600" y="55" width="140" height="50" rx="8" fill="var(--domain)" opacity=".2" stroke="var(--domain)"/><text x="670" y="85" text-anchor="middle" font-size="13">Email / queue</text>
+      <circle id="om" r="9" cx="227" cy="80" fill="var(--infra)" opacity="0"/>
+      <text id="obS" x="455" y="140" text-anchor="middle" font-size="12" class="t-mute"></text>
+    </svg>
+    <div class="row"><button id="bOk">Commit</button><button class="alt" id="bFail">Fail before commit</button></div>
+    <div class="msg" id="obMsg"></div>
+  </div>
+  <div class="card why"><b>Why:</b> if you sent the email inside the request, a crash between "email sent" and "saved" gives a phantom email; between "saved" and "email" gives a lost one. The outbox makes both facts commit together. <code>ProcessedMessage</code> makes the consumer safe if a message arrives twice.</div>
+</section>
+
+<!-- 6 STARTUP -->
+<section id="startup">
+  <h2>6. What <code>Program.cs</code> does</h2>
+  <p class="lead">Startup runs top to bottom; each request flows through the middleware in order. Step through it.</p>
+  <div class="card">
+    <div class="row"><button id="stPrev" class="alt">Back</button><button id="stNext">Next step</button><button id="stReset" class="alt">Restart</button></div>
+    <ol id="stList" style="padding-left:1.2rem;margin:.4rem 0">
+      <li>Read <code>Auth:Mode</code>: must be "Dev" or "EntraId", else refuse to start (typo cannot silently disable auth).</li>
+      <li>Read the one allowed CORS origin (the Angular app, no wildcard).</li>
+      <li>Register ProblemDetails, CORS policy "web", <code>AddApplication()</code>, <code>AddInfrastructure()</code>.</li>
+      <li>Build the app. In Development only: migrate and seed the database.</li>
+      <li>Middleware: exception handler, then status pages (errors become JSON with no stack trace).</li>
+      <li>Middleware: security headers (nosniff, no-referrer, X-Frame-Options DENY).</li>
+      <li>Middleware: CORS check.</li>
+      <li>Endpoint <code>GET /health</code> (anonymous on purpose): checks the database, returns a DTO.</li>
+      <li><code>app.Run()</code>: the server starts listening on port 5000.</li>
+    </ol>
+    <svg viewBox="0 0 760 90" role="img" aria-label="Request passing through middleware to the endpoint">
+      <g id="mw"></g>
+      <circle id="mwp" r="8" cx="20" cy="45" fill="var(--accent)"/>
+    </svg>
+  </div>
+  <div class="card warn"><b>Known gaps spotted:</b> <code>Program.cs</code> (<code>/health</code>) uses <code>DateTimeOffset.UtcNow</code> and <code>DevSeeder.cs</code> uses <code>DateTime.UtcNow</code>; the project rule says use <code>TimeProvider</code> so tests can fake the clock. Also the web page title is still "Web", and <code>INDEX.md</code> says 4c is at Requirements although <code>design.md</code> and <code>tasks.md</code> exist.</div>
+</section>
+
+<!-- 7 WHY -->
+<section id="why">
+  <h2>7. Why these choices, and what was rejected</h2>
+  <div class="card" style="overflow-x:auto">
+  <table>
+    <tr><th>Choice</th><th>Rejected</th><th>Trade-off</th></tr>
+    <tr><td>4 projects (Clean Architecture)</td><td>One project</td><td>More ceremony; rules stay independent</td></tr>
+    <tr><td>Enums as text</td><td>Enums as ints</td><td>A few more bytes; readable, safe to reorder</td></tr>
+    <tr><td>No cascade delete, soft delete</td><td>Cascade</td><td>Extra IsActive checks; history survives</td></tr>
+    <tr><td>Overlap via unique index</td><td>C# check only</td><td>One extra table; no race window</td></tr>
+    <tr><td>DTOs over the wire</td><td>Return entities</td><td>More classes; no over-posting or leaks</td></tr>
+    <tr><td>Migrate at startup in Dev only</td><td>Always</td><td>Extra deploy step; prod login needs no schema rights</td></tr>
+    <tr><td>Fluent API in Infrastructure</td><td>Attributes on entities</td><td>More code; Domain stays free of EF</td></tr>
+  </table></div>
+  <h3>When to use or avoid</h3>
+  <ul>
+    <li><b>Clean Architecture:</b> use when business rules are the valuable part; avoid for small CRUD.</li>
+    <li><b>Outbox:</b> use when a DB change must reliably trigger a message; avoid if losing it is harmless.</li>
+    <li><b>Ledger table:</b> use when you must explain a number; avoid for a plain counter.</li>
+    <li><b>Filtered / covering indexes:</b> use for one hot known query; do not add on every column.</li>
+  </ul>
+</section>
+
+<!-- 8 QA -->
+<section id="qa">
+  <h2>8. Interview Q&amp;A</h2>
+  <p class="lead">Try answering before opening.</p>
+  <details><summary>1. Why Clean Architecture?</summary><p>Business rules stay independent of database and web framework, so they are testable and the outside can be swapped. Cost: more projects.</p></details>
+  <details><summary>2. How do you stop overlapping leave under concurrency?</summary><p>A unique index on (employee, date, half-day slot). The database settles the race; a C# check alone has a race window.</p></details>
+  <details><summary>3. Why a ledger and a balance table?</summary><p>Ledger for audit and explanation, balance for fast reads, and a reconciliation query to compare them.</p></details>
+  <details><summary>4. What is RowVersion for?</summary><p>Optimistic concurrency: a stale update fails with DbUpdateConcurrencyException instead of silently overwriting.</p></details>
+  <details><summary>5. Why store enums as strings?</summary><p>Readable data, and reordering the enum cannot corrupt old rows.</p></details>
+  <details><summary>6. Why no cascade delete?</summary><p>Leave and audit history must survive. Use soft delete (IsActive).</p></details>
+  <details><summary>7. What is the outbox pattern?</summary><p>Save the message with the business change in one transaction; a worker sends it later. No lost or phantom messages.</p></details>
+  <details><summary>8. Why migrate at startup only in Development?</summary><p>Least privilege: the production app login should not be able to change the schema.</p></details>
+  <details><summary>9. What is a filtered index?</summary><p>An index over only rows matching a condition (for example Status = 'Pending'). Smaller and faster.</p></details>
+  <details><summary>10. Why TimeProvider?</summary><p>So tests can control the clock, for example to test a carry-forward expiry date.</p></details>
+
+  <h3>Teach-back (answer these yourself)</h3>
+  <div class="card"><ol>
+    <li>Draw the four projects and explain why the Domain <code>.csproj</code> is empty.</li>
+    <li>Explain to a non-developer why <code>LeaveRequestDay</code> has one row per half-day.</li>
+    <li>Walk through <code>Program.cs</code> line by line for a browser call to <code>/health</code>.</li>
+  </ol></div>
+  <h3>Exercise (SSMS, local dev database only)</h3>
+  <div class="card"><p>Connect to <code>(localdb)\MSSQLLocalDB</code>, open <code>LeaveManagement</code>:</p><ol>
+    <li>Try <code>UPDATE balances.LeaveBalance SET Available = -1 WHERE Id = 1</code> and read the error.</li>
+    <li>Insert two <code>leave.LeaveRequestDay</code> rows with the same employee, date and slot; watch the unique index stop the second.</li>
+    <li>Write the reconciliation query yourself: sum <code>LeaveBalanceEntry.Days</code> per employee, type and year, compare with <code>LeaveBalance.Available</code>.</li>
+  </ol></div>
+</section>
+
+<!-- 9 REBUILD -->
+<section id="rebuild">
+  <h2>9. Rebuilding this shape without AI</h2>
+  <p class="lead">Practise the order of decisions, not the typing.</p>
+  <div class="card"><ol>
+    <li>Create the solution and four projects; reference only inward.<br><code>dotnet new sln -n MyApp --format slnx</code></li>
+    <li>Add <code>Directory.Build.props</code> (target framework, nullable, warnings as errors).</li>
+    <li>Model Domain on paper first: nouns become classes, fixed choices become enums.</li>
+    <li>Add EF Core SQL Server to Infrastructure; write the DbContext and one configuration per entity. For each rule ask: "can the database enforce this too?"</li>
+    <li>Create the first migration, read its SQL, apply it.<br><code>dotnet ef migrations add Initial --project src\MyApp.Infrastructure --startup-project src\MyApp.Api --output-dir Persistence\Migrations</code></li>
+    <li>In Program.cs add DI, ProblemDetails, CORS, security headers and <code>/health</code>. Run it.</li>
+    <li>Only then build features one use case at a time: DTO, validation, use case, endpoint, tests.</li>
+  </ol></div>
+</section>
+
+</main>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function wait(ms){return new Promise(function(r){setTimeout(r,reduce?0:ms)})}
+  function tween(el,attrs,ms){
+    return new Promise(function(res){
+      var from={},t0=null,keys=Object.keys(attrs);
+      keys.forEach(function(k){from[k]=parseFloat(el.getAttribute(k))||0});
+      if(reduce){keys.forEach(function(k){el.setAttribute(k,attrs[k])});return res()}
+      function step(t){
+        if(t0===null)t0=t;var p=Math.min(1,(t-t0)/ms);
+        keys.forEach(function(k){el.setAttribute(k,from[k]+(attrs[k]-from[k])*p)});
+        p<1?requestAnimationFrame(step):res();
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  /* 1 layers */
+  var layerBusy=false;
+  async function hi(id,on){var r=$(id).querySelector('rect');r.setAttribute('opacity',on?'.45':'.18')}
+  $('runReq').onclick=async function(){
+    if(layerBusy)return;layerBusy=true;
+    var p=$('pkt'),m=$('layerMsg'),lab=$('pktLabel');m.className='msg';m.textContent='';
+    p.setAttribute('cx',-20);p.setAttribute('opacity',1);
+    var steps=[['L-api',92,'1. Api receives GET /health'],['L-inf',277,'2. Infrastructure: LeaveDbContext.CanConnectAsync'],['L-app',462,'3. Application (no use case yet)'],['L-dom',657,'4. Domain (entities only)']];
+    for(var i=0;i<steps.length;i++){
+      await tween(p,{cx:steps[i][1]},700);hi(steps[i][0],true);lab.textContent=steps[i][2];await wait(500);
+      if(i===1){m.textContent='Database answers: Connected';m.className='msg ok'}
+    }
+    lab.textContent='5. Response JSON travels back: { status: Healthy, database: Connected, ... }';
+    await wait(900);
+    ['L-api','L-inf','L-app','L-dom'].forEach(function(x){hi(x,false)});
+    p.setAttribute('opacity',0);lab.textContent='';layerBusy=false;
+  };
+  $('runBad').onclick=function(){
+    var m=$('layerMsg');m.className='msg bad';
+    m.textContent='Build error: Domain.csproj has no package or project references, so "using Microsoft.EntityFrameworkCore" does not compile. The architecture rule is enforced by the compiler.';
+  };
+
+  /* 2 filter */
+  document.querySelectorAll('#filters button').forEach(function(b){
+    b.onclick=function(){
+      document.querySelectorAll('#filters button').forEach(function(x){x.className='alt'});
+      b.className='';var f=b.dataset.f;
+      document.querySelectorAll('#ft tr[data-l]').forEach(function(r){r.style.display=(f==='all'||r.dataset.l===f)?'':'none'});
+    };
+  });
+
+  /* 3 ledger */
+  var bal=0,entries=[];
+  function renderLedger(){
+    var t=$('lt');t.innerHTML='<tr><th>Type</th><th>Days</th><th>Note</th></tr>';
+    entries.forEach(function(e){
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td>'+e[0]+'</td><td class="'+(e[1]>0?'pos':'neg')+'">'+(e[1]>0?'+':'')+e[1].toFixed(1)+'</td><td>'+e[2]+'</td>';
+      t.appendChild(tr);
+    });
+    $('bal').textContent=bal.toFixed(1);
+  }
+  function lmsg(t,c){var m=$('ledMsg');m.textContent=t;m.className='msg '+(c||'')}
+  function add(type,d,note){
+    if(bal+d<0){lmsg('Rejected by the database: CK_LeaveBalance_Available ([Available] >= 0). Balance stays '+bal.toFixed(1)+'.','bad');return false}
+    bal+=d;entries.push([type,d,note]);renderLedger();lmsg('Ledger row added and balance updated in the same transaction.','ok');return true;
+  }
+  $('bGrant').onclick=function(){add('Grant',12,'Opening balance')};
+  $('bDed').onclick=function(){add('Deduction',-3,'Request 41 submitted')};
+  $('bRes').onclick=function(){add('Restore',3,'Request 41 rejected')};
+  $('bBig').onclick=function(){add('Deduction',-20,'Too many days')};
+  $('bReset').onclick=function(){bal=0;entries=[];renderLedger();lmsg('')};
+  renderLedger();
+
+  /* 4 overlap */
+  var raced=false;
+  function ovReset(){
+    raced=false;['pa','pb'].forEach(function(i){$(i).setAttribute('opacity',0);$(i).setAttribute('cx',190)});
+    $('slotRow').setAttribute('stroke','var(--line)');$('slotRow').setAttribute('fill','none');
+    $('slotTxt').textContent='empty';$('slotTxt').setAttribute('class','t-mute');
+    $('ovRes').textContent='';$('ovMsg').textContent='';$('ovMsg').className='msg';
+  }
+  $('bRaceReset').onclick=ovReset;
+  $('bRace').onclick=async function(){
+    if(raced)return;raced=true;
+    var a=$('pa'),b=$('pb');a.setAttribute('opacity',1);b.setAttribute('opacity',1);
+    await Promise.all([tween(a,{cx:480},900),tween(b,{cx:480},950)]);
+    $('slotRow').setAttribute('stroke','var(--ok)');$('slotRow').setAttribute('fill','rgba(31,157,85,.2)');
+    $('slotTxt').textContent='(emp 7, Mon 10th, AM) = Request A';$('slotTxt').setAttribute('class','');
+    b.setAttribute('fill','var(--bad)');
+    await tween(b,{cx:455,cy:150},500);
+    $('ovRes').textContent='B rejected: unique index violation';$('ovRes').style.fill='var(--bad)';
+    $('ovMsg').textContent='Request A committed first. Request B hits UX_LeaveRequestDay_Employee_Date_Slot, its transaction rolls back, and the API answers with a friendly "you already have leave on that day".';
+    $('ovMsg').className='msg bad';
+  };
+
+  /* 5 outbox */
+  var obBusy=false;
+  function obReset(){var c=$('commit');c.setAttribute('opacity',0);$('commitT').setAttribute('opacity',0);$('om').setAttribute('opacity',0);$('om').setAttribute('cx',227);$('om').setAttribute('cy',80);$('obS').textContent='';}
+  $('bOk').onclick=async function(){
+    if(obBusy)return;obBusy=true;obReset();var m=$('obMsg');m.className='msg';m.textContent='';
+    var c=$('commit');c.setAttribute('fill','var(--ok)');c.setAttribute('opacity',1);$('commitT').textContent='COMMIT';$('commitT').setAttribute('opacity',1);
+    await wait(700);
+    var o=$('om');o.setAttribute('opacity',1);$('obS').textContent='worker polls unsent rows...';
+    await tween(o,{cx:455},800);await wait(300);$('obS').textContent='sending...';
+    await tween(o,{cx:670},800);$('obS').textContent='SentAtUtc set; ProcessedMessage guards duplicates';
+    m.textContent='Approval and message both exist, and the message is sent exactly once.';m.className='msg ok';obBusy=false;
+  };
+  $('bFail').onclick=async function(){
+    if(obBusy)return;obBusy=true;obReset();var m=$('obMsg');
+    var c=$('commit');c.setAttribute('fill','var(--bad)');c.setAttribute('opacity',1);$('commitT').textContent='ROLLBACK';$('commitT').setAttribute('opacity',1);
+    await wait(900);
+    m.textContent='Crash before commit: neither the approval nor the outbox row exist. No phantom email, and the user can retry.';m.className='msg bad';obBusy=false;
+  };
+
+  /* 6 startup stepper */
+  var steps=document.querySelectorAll('#stList li'),cur=-1;
+  var names=['Exception','Status pages','Sec headers','CORS','/health'];
+  var mw=$('mw'),xs=[110,230,350,470,600];
+  names.forEach(function(n,i){
+    var g='<rect x="'+(xs[i]-50)+'" y="22" width="100" height="46" rx="6" fill="var(--api)" opacity=".18" stroke="var(--api)"/><text x="'+xs[i]+'" y="50" text-anchor="middle" font-size="12">'+n+'</text>';
+    mw.insertAdjacentHTML('beforeend',g);
+  });
+  function paint(){
+    steps.forEach(function(li,i){li.style.opacity=i<=cur?1:.35;li.style.fontWeight=i===cur?'700':'400'});
+    var map={4:0,5:2,6:3,7:4};
+    var x=20;if(cur>=4){x=xs[Math.min(4,{4:1,5:2,6:3,7:4,8:4}[cur]!==undefined?{4:1,5:2,6:3,7:4,8:4}[cur]:0)]}
+    tween($('mwp'),{cx:x},500);
+  }
+  $('stNext').onclick=function(){if(cur<steps.length-1){cur++;paint()}};
+  $('stPrev').onclick=function(){if(cur>-1){cur--;paint()}};
+  $('stReset').onclick=function(){cur=-1;paint()};
+  paint();
+})();
+</script>
+</body>
+</html>

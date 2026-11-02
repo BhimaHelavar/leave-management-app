@@ -1,0 +1,43 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Copy .env.example to .env and set MSSQL_SA_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    build:
+      context: .
+      dockerfile: src/LeaveManagement.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Auth__Mode: Dev
+      Cors__AllowedOrigin: http://localhost:4200
+      # Used from Phase 4b onward.
+      ConnectionStrings__Default: Server=sqlserver;Database=LeaveManagement;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+    ports:
+      - "5000:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+    ports:
+      - "4200:8080"
+    depends_on:
+      - api
+
+volumes:
+  sqldata:

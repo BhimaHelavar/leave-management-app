@@ -1,0 +1,12 @@
+**/.env
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular
+**/.git
+**/.vs
+**/.vscode
+web/
+docker-compose.yml
+README.md
