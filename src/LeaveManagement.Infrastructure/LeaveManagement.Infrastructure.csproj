@@ -8,6 +8,9 @@
   <ItemGroup>
     <!-- 10.0.* picks the newest 10.0 patch release. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.*" />
+    <!-- Pinned above the 6.1.7 that EF Core brings in: 6.1.8 pulls System.Security.Cryptography.Pkcs 9.0.21,
+         which fixes CVE-2026-84008 and CVE-2026-70162. Remove once EF Core depends on 6.1.8 or later. -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.8" />
   </ItemGroup>
 
 </Project>
