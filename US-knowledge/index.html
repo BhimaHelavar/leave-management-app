@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>US-knowledge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --bg: #f6f8fa; --surface: #ffffff; --fg: #14202b; --muted: #55677a; --line: #dbe2ea;
+  --accent: #0a6c74; --accent-soft: #e0f1f2;
+  --ok: #17703f; --ok-bg: #e2f4ea; --warn: #85560a; --warn-bg: #fdf0d3; --bad: #a3261d; --bad-bg: #fce6e3;
+  --code-bg: #0f1b26; --code-fg: #d6e2ee; --inline-bg: #e9eef3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+    --accent: #55c7c9; --accent-soft: #11302f;
+    --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+    --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+  --accent: #55c7c9; --accent-soft: #11302f;
+  --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+  --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.page { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+header { display: flex; flex-direction: column; gap: 14px; }
+h1 { font-family: var(--font-head); font-size: clamp(1.6rem, 4.5vw, 2.3rem); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.facts dt { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding-top: 3px; }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 0.82rem; color: var(--accent); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; outline: none; }
+main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+h2 { font-family: var(--font-head); font-size: 1.35rem; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); text-wrap: balance; scroll-margin-top: 12px; }
+h3 { font-family: var(--font-head); font-size: 1.02rem; margin: 10px 0 0; color: var(--accent); }
+p { margin: 0; max-width: 72ch; }
+ul, ol { margin: 0; padding-left: 1.4rem; max-width: 76ch; display: flex; flex-direction: column; gap: 6px; }
+a { color: var(--accent); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--inline-bg); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+.code { overflow-x: auto; background: var(--code-bg); border-radius: 8px; border: 1px solid var(--line); }
+.code pre { margin: 0; padding: 14px 16px; }
+.code code { background: none; padding: 0; color: var(--code-fg); font-size: 0.8rem; line-height: 1.5; white-space: pre; overflow-wrap: normal; }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+td:first-child { min-width: 9rem; }
+td.st { font-weight: 600; }
+td.ok { color: var(--ok); background: var(--ok-bg); }
+td.warn { color: var(--warn); background: var(--warn-bg); }
+td.bad { color: var(--bad); background: var(--bad-bg); }
+footer { color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 560px) { .facts { grid-template-columns: 1fr; gap: 2px; } .facts dt { padding-top: 8px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+<h1>US-knowledge</h1>
+
+<nav class="toc" aria-label="Sections"><a href="#how-to-create-or-refresh-a-note">How to create or refresh a note</a><a href="#how-to-read-the-notes">How to read the notes</a><a href="#what-every-note-contains">What every note contains</a><a href="#index">Index</a></nav>
+</header>
+<main>
+<p>One note per Jira story, written in simple words: what the story asks, what was built, how it works and why. Use it to learn the project and to prepare interview answers.</p>
+<h2 id="how-to-create-or-refresh-a-note">How to create or refresh a note</h2>
+<p>In Claude Code, from the repository root:</p>
+<div class="code"><pre><code>/us-explain SCRUM-8          one story by Jira key
+/us-explain US-01            one story by its id
+/us-explain all              every story that is not "To Do" and has no note yet</code></pre></div>
+<p>The skill (<code>.claude/skills/us-explain/SKILL.md</code>) reads the story from Jira and the code changes from git, then asks the <code>story-explainer</code> agent (<code>.claude/agents/story-explainer.md</code>) to write the note from <code>_template.md</code>. It does not change Jira or code, and it does not commit. Review the note, then commit it yourself.</p>
+<h2 id="how-to-read-the-notes">How to read the notes</h2>
+<p>Open <code>US-knowledge\index.html</code> in a browser. Each note is a normal web page with tables, a contents bar and a dark mode. The <code>.md</code> files are the source; the <code>.html</code> files are generated. To rebuild all pages after any change, run this from the repository root:</p>
+<div class="code"><pre><code>node US-knowledge/build-html.js</code></pre></div>
+<h2 id="what-every-note-contains">What every note contains</h2>
+<ol><li>What the story is, in simple words</li><li>What the code delivers: an ASCII flow, numbered steps and one example</li><li>Acceptance criteria and where each one is delivered</li><li>Code changes, file by file, grouped as back end, front end, tests and docs</li><li>Design versus code: where the design documents and the code agree or differ</li><li>State of the tasks</li><li>Findings and gaps, including what was not verified</li><li>Why it is built this way, and what was rejected</li><li>Interview practice and teach-back questions</li></ol>
+<h2 id="index">Index</h2>
+<div class="table"><table><thead><tr><th>Id</th><th>Story</th><th>Jira status</th><th>Code</th><th>Note</th><th>Written</th></tr></thead><tbody><tr><td>US-01</td><td>Sign in and see only what my role allows (SCRUM-8)</td><td>In Progress</td><td>PR #2 (open)</td><td><a href="US-01-sign-in-by-role.html">US-01-sign-in-by-role.md</a></td><td>2026-11-10</td></tr></tbody></table></div>
+</main>
+<footer>Generated from README.md by US-knowledge/build-html.js. Edit the .md file, then run the script again.</footer>
+</div>
+</body>
+</html>
