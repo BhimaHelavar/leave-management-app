@@ -1,11 +1,13 @@
 <!--
 Sync Impact Report (temporary; remove before commit)
-Version change: (template) -> 1.0.0
-Modified principles: none (initial adoption)
-Added sections: Core Principles I-VIII, Technology and Security Constraints, Development Workflow, Governance
+
+
+Version change: 1.0.0 -> 1.1.0 (MINOR: materially expanded guidance)
+Modified principles: II (adds Dev-sign-in environment rule); Technology constraints (Demo environment)
+Added sections: none
 Removed sections: none
 Deferred TODOs: none
-Source: CLAUDE.md and ai/steering/{product,tech,structure,security,learning}.md. No new policy added.
+Source: owner decision for SCRUM-26 (Demo environment); mirrors security.md rule 6.
 -->
 # Leave Management (LMS) Constitution
 
@@ -26,6 +28,8 @@ Authorization has two layers: role policies and resource rules. A record the cal
 MUST return 404, not 403. Errors MUST be `ProblemDetails` with no stack traces or SQL. Secrets
 MUST NOT be in the repo, and `.env` files MUST NOT be read or printed. Every apply, approve,
 reject, cancel and balance change MUST write an append-only audit row in the same transaction.
+Dev sign-in MUST run only in the `Development` or `Demo` environment, and a Demo deployment MUST
+be access-restricted to the owner.
 Detail: `ai/steering/security.md` (14 rules; a review fails if one is broken).
 
 ### III. Clean Architecture Dependency Rule
@@ -62,7 +66,8 @@ Detail: `ai/steering/learning.md`.
 
 - Stack: .NET 10, EF Core 10, SQL Server, Angular 22 (standalone, Signals, zoneless).
 - Auth is JWT bearer with one switch (`Auth:Mode`); business code MUST NOT read it. Dev mode MUST
-  refuse to start outside Development.
+  refuse to start outside the `Development` or `Demo` environment; `Demo` MUST NOT migrate or
+  seed at startup.
 - Personal data is limited to name, email and role; audit and outbox rows hold ids and values only.
 - Commands given to the owner MUST work in Command Prompt or PowerShell on Windows.
 - Policy rules are the 15 accepted rules in `ai/steering/product.md`.
@@ -82,4 +87,4 @@ principle or materially expanded guidance, PATCH for wording fixes. A change to 
 MUST be mirrored here in the same change. Every review (`/review`) MUST check compliance with
 these principles.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02
+**Version**: 1.1.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02

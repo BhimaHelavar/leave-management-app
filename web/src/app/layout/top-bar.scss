@@ -1,0 +1,63 @@
+// Phase 3a: the header uses the primary color. White on #1F4E79 is 8.66:1 (research R11).
+.top-bar {
+  --mat-toolbar-container-background-color: var(--mat-sys-primary);
+  --mat-toolbar-container-text-color: var(--mat-sys-on-primary);
+  // Text buttons default to the primary color, which would vanish on a primary background.
+  --mat-button-text-label-text-color: var(--mat-sys-on-primary);
+  --mat-button-text-state-layer-color: var(--mat-sys-on-primary);
+  --mat-button-text-ripple-color: var(--mat-sys-on-primary);
+
+  gap: var(--lms-space-2);
+  padding-inline: var(--lms-space-3);
+}
+
+.brand {
+  color: inherit;
+  font-size: 20px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  margin-inline-end: var(--lms-space-3);
+}
+
+.links {
+  display: flex;
+  gap: var(--lms-space-1);
+  flex-wrap: nowrap;
+}
+
+// The current page is marked with an underline as well as aria-current, not by color alone.
+.links .active {
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+// Visible only when focused, and first in the tab order (WCAG 2.1 AA, bypass blocks).
+.skip-link {
+  position: absolute;
+  inset-inline-start: var(--lms-space-2);
+  top: -100px;
+  z-index: 1000;
+  padding: var(--lms-space-2) var(--lms-space-3);
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-primary);
+  border-radius: var(--lms-radius-small);
+}
+
+.skip-link:focus {
+  top: var(--lms-space-2);
+}
+
+// Keep the header inside a 320 px screen: the name shrinks and the user button truncates.
+@media (max-width: 767.98px) {
+  .brand {
+    font-size: 16px;
+    margin-inline-end: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

@@ -1,0 +1,145 @@
+name: Checks
+
+# Quality gate for every pull request: build, coding standards, unit tests, safety checks.
+# A weekly run catches a new package vulnerability even when nobody pushed code.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------- back end (src)
+  api:
+    name: API (build, standards, tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - run: dotnet restore LeaveManagement.slnx
+
+      # Directory.Build.props turns warnings into errors, so a clean build is also a standards check.
+      - name: Build (Release, warnings are errors)
+        run: dotnet build LeaveManagement.slnx --no-restore -c Release
+
+      # Style rules and analyzer warnings. Whitespace is skipped: line endings differ between Windows and Linux.
+      - name: Coding standards (dotnet format style and analyzers)
+        run: |
+          dotnet format style LeaveManagement.slnx --verify-no-changes --severity warn --no-restore
+          dotnet format analyzers LeaveManagement.slnx --verify-no-changes --severity warn --no-restore
+
+      # No test project exists before Phase 5, so this step says so instead of passing silently.
+      - name: Unit tests
+        run: |
+          if git ls-files | grep -qiE 'tests?\.csproj$'; then
+            dotnet test LeaveManagement.slnx --no-build -c Release
+          else
+            echo "::warning::No .NET test project found (arrives in Phase 5). Back-end unit tests were NOT run."
+          fi
+
+  # ---------------------------------------------------------------- front end (web)
+  web:
+    name: Web (build, standards, tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      # Prettier is already a dev dependency; rules are in web/.prettierrc.
+      - name: Coding standards (Prettier)
+        run: npx prettier --check "src/**/*.{ts,html,scss}"
+
+      - name: Unit tests (Vitest)
+        run: npm test -- --watch=false
+
+      - name: Build
+        run: npm run build
+
+  # ---------------------------------------------------------------- safety
+  repo-guard:
+    name: Repo guard (no secrets or .env files)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if an .env file is tracked
+        run: |
+          files=$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v -E '\.env\.(example|sample)$' || true)
+          if [ -n "$files" ]; then
+            echo "Tracked .env files (remove them and rotate any secret inside):"
+            echo "$files"
+            exit 1
+          fi
+
+      - name: Fail if a private key or certificate is tracked
+        run: |
+          files=$(git ls-files | grep -E '\.(pfx|p12|pem|key)$' || true)
+          if [ -n "$files" ]; then
+            echo "Tracked key or certificate files:"
+            echo "$files"
+            exit 1
+          fi
+
+      - name: Fail if the web app stores a token in browser storage
+        run: |
+          # security.md rule 7: the token lives in memory only.
+          hits=$(grep -rnE '(localStorage|sessionStorage)\.(setItem|getItem)\([^)]*([Tt]oken|jwt)' web/src || true)
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            exit 1
+          fi
+
+  api-packages:
+    name: API packages (vulnerabilities)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore LeaveManagement.slnx
+      - name: Fail on a vulnerable NuGet package (including indirect ones)
+        run: |
+          dotnet list LeaveManagement.slnx package --vulnerable --include-transitive 2>&1 | tee vulnerable.txt
+          if grep -q "has the following vulnerable packages" vulnerable.txt; then
+            echo "A NuGet package has a known vulnerability. Update or pin a fixed version."
+            exit 1
+          fi
+
+  web-packages:
+    name: Web packages (vulnerabilities)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Fail on a high or critical vulnerability in shipped packages
+        run: npm audit --omit=dev --audit-level=high

@@ -23,6 +23,9 @@ builder.Services.AddCors(options =>
         .AllowAnyHeader()
         .AllowAnyMethod()));
 
+// "Now" always comes from TimeProvider so tests can control it (golden rule).
+builder.Services.AddSingleton(TimeProvider.System);
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -52,7 +55,7 @@ app.UseCors("web");
 
 // The fallback "require authenticated user" policy is added in Phase 4c together with
 // the authentication scheme. Until then /health is the only endpoint.
-app.MapGet("/health", async (LeaveDbContext db, CancellationToken ct) =>
+app.MapGet("/health", async (LeaveDbContext db, TimeProvider time, CancellationToken ct) =>
     {
         var databaseUp = await db.Database.CanConnectAsync(ct);
         return Results.Ok(new HealthResponse(
@@ -60,7 +63,7 @@ app.MapGet("/health", async (LeaveDbContext db, CancellationToken ct) =>
             AuthMode: authMode,
             Database: databaseUp ? "Connected" : "Unavailable",
             Environment: app.Environment.EnvironmentName,
-            TimeUtc: DateTimeOffset.UtcNow));
+            TimeUtc: time.GetUtcNow()));
     })
     .AllowAnonymous()
     .WithName("Health");

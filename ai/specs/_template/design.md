@@ -5,9 +5,10 @@ Requirements: approved on <date>
 
 ## Approach in one paragraph
 
-## Diagram
+## Diagram and wireframe
 
-A small diagram of the flow or the parts (ASCII is fine).
+A small Mermaid diagram of the flow or the parts. Put it in `ai/design/` (architecture, flows) and link it here, or embed a short one.
+For any UI change, add an ASCII wireframe in `ai/design/wireframes/` (and mobile if the layout changes) and link it here. Update the index in `ai/design/README.md`.
 
 ## Data
 

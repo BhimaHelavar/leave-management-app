@@ -1,0 +1,46 @@
+<a class="skip-link" href="#main" (click)="skipToMain($event)">Skip to main content</a>
+
+<mat-toolbar class="top-bar">
+  <a class="brand" routerLink="/dashboard">Leave Management</a>
+
+  @if (person(); as p) {
+    @if (!narrow()) {
+      <nav class="links" aria-label="Main">
+        @for (item of items(); track item.path) {
+          <a
+            matButton
+            [routerLink]="'/' + item.path"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            >{{ item.label }}</a
+          >
+        }
+      </nav>
+    } @else {
+      <nav class="links" aria-label="Main">
+        <button matButton type="button" [matMenuTriggerFor]="navMenu" aria-label="Open navigation menu">
+          Menu
+        </button>
+      </nav>
+      <mat-menu #navMenu="matMenu">
+        @for (item of items(); track item.path) {
+          <a mat-menu-item [routerLink]="'/' + item.path" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+            item.label
+          }}</a>
+        }
+      </mat-menu>
+    }
+
+    <span class="spacer"></span>
+
+    <button matButton type="button" [matMenuTriggerFor]="userMenu" [attr.aria-label]="'Account menu for ' + p.name">
+      {{ p.name }}
+    </button>
+    <mat-menu #userMenu="matMenu">
+      <button mat-menu-item type="button" disabled>Signed in as {{ p.name }}</button>
+      @for (stub of stubPeople; track stub.id) {
+        <button mat-menu-item type="button" (click)="switchTo(stub.id)">Switch to {{ stub.name }}</button>
+      }
+    </mat-menu>
+  }
+</mat-toolbar>

@@ -1,3 +1,4 @@
+
 # Leave Management (LMS)
 
 Employee leave management web app: Angular 22 + .NET 10 + SQL Server. A solo portfolio project with a second goal: the owner is learning to build and explain senior-level full-stack work. Build it the way a good senior team would, and explain the why.

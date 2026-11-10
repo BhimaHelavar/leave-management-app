@@ -1,34 +1,8 @@
-<main class="shell">
-  <h1>Leave Management</h1>
-  <p class="subtitle">Phase 4a scaffold: checking that the web app can reach the API.</p>
-
-  <section class="card" aria-live="polite">
-    @switch (state().kind) {
-      @case ('loading') {
-        <p>Contacting the API...</p>
-      }
-      @case ('ok') {
-        @if (state(); as s) {
-          @if (s.kind === 'ok') {
-            <p class="status ok">API is {{ s.health.status }}</p>
-            <dl>
-              <dt>Auth mode</dt>
-              <dd>{{ s.health.authMode }}</dd>
-              <dt>Database</dt>
-              <dd>{{ s.health.database }}</dd>
-              <dt>Environment</dt>
-              <dd>{{ s.health.environment }}</dd>
-              <dt>Server time (UTC)</dt>
-              <dd>{{ s.health.timeUtc }}</dd>
-            </dl>
-          }
-        }
-      }
-      @case ('error') {
-        <p class="status error">The API could not be reached.</p>
-        <p>Check that the API is running and that CORS allows this origin.</p>
-      }
-    }
-    <button type="button" (click)="check()">Check again</button>
-  </section>
-</main>
+@if (config.state() === 'failed') {
+  <app-config-error />
+} @else {
+  <app-top-bar />
+  <main id="main" tabindex="-1">
+    <router-outlet />
+  </main>
+}
