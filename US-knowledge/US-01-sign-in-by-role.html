@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>US-01: Sign in and see only what my role allows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --bg: #f6f8fa; --surface: #ffffff; --fg: #14202b; --muted: #55677a; --line: #dbe2ea;
+  --accent: #0a6c74; --accent-soft: #e0f1f2;
+  --ok: #17703f; --ok-bg: #e2f4ea; --warn: #85560a; --warn-bg: #fdf0d3; --bad: #a3261d; --bad-bg: #fce6e3;
+  --code-bg: #0f1b26; --code-fg: #d6e2ee; --inline-bg: #e9eef3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+    --accent: #55c7c9; --accent-soft: #11302f;
+    --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+    --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+  --accent: #55c7c9; --accent-soft: #11302f;
+  --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+  --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.page { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+header { display: flex; flex-direction: column; gap: 14px; }
+h1 { font-family: var(--font-head); font-size: clamp(1.6rem, 4.5vw, 2.3rem); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.facts dt { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding-top: 3px; }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 0.82rem; color: var(--accent); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; outline: none; }
+main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+h2 { font-family: var(--font-head); font-size: 1.35rem; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); text-wrap: balance; scroll-margin-top: 12px; }
+h3 { font-family: var(--font-head); font-size: 1.02rem; margin: 10px 0 0; color: var(--accent); }
+p { margin: 0; max-width: 72ch; }
+ul, ol { margin: 0; padding-left: 1.4rem; max-width: 76ch; display: flex; flex-direction: column; gap: 6px; }
+a { color: var(--accent); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--inline-bg); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+.code { overflow-x: auto; background: var(--code-bg); border-radius: 8px; border: 1px solid var(--line); }
+.code pre { margin: 0; padding: 14px 16px; }
+.code code { background: none; padding: 0; color: var(--code-fg); font-size: 0.8rem; line-height: 1.5; white-space: pre; overflow-wrap: normal; }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+td:first-child { min-width: 9rem; }
+td.st { font-weight: 600; }
+td.ok { color: var(--ok); background: var(--ok-bg); }
+td.warn { color: var(--warn); background: var(--warn-bg); }
+td.bad { color: var(--bad); background: var(--bad-bg); }
+footer { color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 560px) { .facts { grid-template-columns: 1fr; gap: 2px; } .facts dt { padding-top: 8px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+<h1>US-01: Sign in and see only what my role allows</h1>
+<dl class="facts"><dt>Jira</dt><dd>SCRUM-8 · Story · In Progress · High · epic SCRUM-7 (Leave Management App: MVP) · SCRUM Sprint 4 (active)</dd><dt>Code</dt><dd>PR #2 (open) · branch <code>SCRUM-8-US-01-Sign-in-and-see-only-what-my-role-allows</code> · head <code>bc408b9</code> · 54 files (+1771, -167)</dd><dt>Written</dt><dd>2026-11-10. I read the code and the design documents. I did not build or run anything. Results marked "the caller reported" were run by the person who launched me, on the owner's PC, before the two commits.</dd></dl>
+<nav class="toc" aria-label="Sections"><a href="#what-the-story-is">What the story is</a><a href="#what-the-code-delivers">What the code delivers</a><a href="#acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</a><a href="#code-changes">Code changes</a><a href="#design-versus-code">Design versus code</a><a href="#state-of-the-tasks">State of the tasks</a><a href="#findings-and-gaps">Findings and gaps</a><a href="#why-it-is-built-this-way">Why it is built this way</a><a href="#interview-practice">Interview practice</a></nav>
+</header>
+<main>
+<h2 id="what-the-story-is">What the story is</h2>
+<p>A person signs in and lands on their own dashboard. They only see the links their roles allow. If an Employee tries to use an Admin-only part of the API, the server says 403 (forbidden) and writes a line in the audit table saying who tried and which door.</p>
+<p>Everything here is "dev mode": there is no password. You pick a demo person from a list and the API gives you a signed token.</p>
+<p><strong>Why it matters:</strong> it proves the core security idea of the app: the server decides, and every refusal leaves a trace (requirement BR-01 and BR-07).</p>
+<h2 id="what-the-code-delivers">What the code delivers</h2>
+<p>Sign-in (criterion 1):</p>
+<div class="code"><pre><code>Login screen --GET /api/dev/users--&gt; API --&gt; people.Employee + EmployeeRole
+   |  (click a person)
+   +--POST /api/dev/token {employeeId}--&gt; DevTokenService --&gt; signed JWT (60 min)
+   |
+AuthService keeps token in a signal (memory only)
+   |
+authInterceptor adds "Authorization: Bearer ..." to calls to our API
+   |
+authGuard + roleGuard --&gt; /dashboard ; top bar shows links for the roles</code></pre></div>
+<p>Refusal (criterion 2):</p>
+<div class="code"><pre><code>Employee --GET /api/admin/ping + Bearer--&gt; JWT check --&gt; policy RequireAdmin
+                                                  |
+        AuditingAuthorizationResultHandler (403 and signed in?)
+          |-- IAuditWriter --&gt; audit.AuditEvent (AccessDenied, /api/admin/ping,
+          |                    {"policy":"RequireAdmin"}, actor = sub claim)
+          +-- default handler --&gt; 403 ProblemDetails
+(no token / bad token: 401, no audit row.   Admin: 204)</code></pre></div>
+<ol><li>The Login screen asks <code>GET /api/dev/users</code> for the active people and their roles. This endpoint is anonymous on purpose and rate limited (30 per minute per address).</li><li>Clicking a person sends <code>POST /api/dev/token</code>. <code>DevTokenService</code> reads the person and roles from the database and signs a JWT (a signed text token) with claims <code>sub</code>, <code>name</code>, <code>email</code>, <code>role</code>. The manager is not in the token because it can change.</li><li><code>AuthService</code> stores the token in a signal. A signal lives in memory, so a page reload signs you out. This is deliberate (security rule 7).</li><li><code>authInterceptor</code> adds the Bearer header only for calls to our own API. A 401 with a token clears the session and goes to <code>/login</code>.</li><li><code>authGuard</code> sends a signed-out person to <code>/login</code>. <code>roleGuard</code> sends a person without the role to the not-found screen. Both are screen conveniences only.</li><li>On the API, JWT validation, a fallback policy (everything needs a signed-in user) and three role policies are set up in <code>AuthSetup.cs</code>.</li><li><code>AuditingAuthorizationResultHandler</code> runs after the authorization decision. If the result is Forbidden and the user is signed in, it writes one <code>AccessDenied</code> row. Then the normal framework handler returns the 403. If the audit write fails, it logs the trace id and still returns 403.</li></ol>
+<p><strong>Example:</strong> Priya (an Employee, id 4 in the seed data) signs in at <code>/login</code>. She sees Dashboard and My requests. A script calls <code>GET /api/admin/ping</code> with her token. The API answers 403. One row appears in <code>audit.AuditEvent</code> with her id as actor. Then an Admin signs in and gets 204 from the same endpoint, with no audit row.</p>
+<h2 id="acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</h2>
+<div class="table"><table><thead><tr><th>Criterion (from Jira)</th><th>Delivered by</th><th>State</th></tr></thead><tbody><tr><td>1. Valid dev-mode user signs in and lands on their dashboard</td><td><code>Login</code> (<code>login.ts</code>), <code>AuthService.signInAs</code>, <code>DevTokenService</code>, <code>AuthEndpoints</code>, guards, <code>app.routes.ts</code> (navigate to <code>/dashboard</code>). Unit tests: <code>login.spec.ts</code>, <code>auth.service.spec.ts</code>, <code>auth.guard.spec.ts</code>.</td><td class="st warn">Partly. Code and unit tests exist. API token issue was checked by the caller. Nobody has clicked it in a browser (task T006 open).</td></tr><tr><td>2. Employee opens /admin: 403 and the attempt is audited</td><td><code>AdminEndpoints.cs</code> (<code>GET /api/admin/ping</code>, <code>RequireAdmin</code>), <code>AuditingAuthorizationResultHandler.cs</code>, <code>AuditWriter.cs</code></td><td class="st ok">Done for the API, with a wording difference (below). The caller reported 403 for Employee, Manager and HR, 204 for Admin, and four audit rows for four 403s. No automated back-end test.</td></tr></tbody></table></div>
+<p><strong>Wording note:</strong> Jira says "/admin". The Angular shell has no <code>/admin</code> path (its Admin links are <code>leave-types</code> and <code>holidays</code>). The check is on the API probe <code>GET /api/admin/ping</code>. If an Employee types <code>/leave-types</code> in the browser, <code>roleGuard</code> shows the not-found screen. That is not a 403 and writes no audit row.</p>
+<h2 id="code-changes">Code changes</h2>
+<p>The PR holds four things. Only the first two belong to the story.</p>
+<p><strong>Back end (<code>src/</code>)</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it does</th></tr></thead><tbody><tr><td><code>Api/Auth/AuthSetup.cs</code></td><td>Start-up checks, JWT validation, fallback policy, role policies, rate limiter. Part of 4c (criterion 1).</td></tr><tr><td><code>Api/Auth/AuthEndpoints.cs</code></td><td><code>/api/me</code>, <code>/api/dev/users</code>, <code>/api/dev/token</code> (dev ones only in Dev mode). Part of 4c.</td></tr><tr><td><code>Api/Auth/DevTokenService.cs</code>, <code>DevTokenOptions.cs</code>, <code>Policies.cs</code></td><td>Sign the token; settings; policy names. Part of 4c.</td></tr><tr><td><code>Api/Program.cs</code>, <code>Api/LeaveManagement.Api.csproj</code>, <code>appsettings.Development.json</code></td><td>Wire the middleware order (rate limiter, authentication, authorization); JwtBearer package; throwaway dev key.</td></tr><tr><td><code>Api/Auth/AuditingAuthorizationResultHandler.cs</code></td><td>Writes the <code>AccessDenied</code> row on 403. Criterion 2.</td></tr><tr><td><code>Api/Admin/AdminEndpoints.cs</code></td><td>The Admin-only probe <code>GET /api/admin/ping</code>, returns 204. Criterion 2. Its comment says to remove it when real Admin features arrive.</td></tr><tr><td><code>Application/Auditing/IAuditWriter.cs</code></td><td>Interface and <code>AuditRecord</code>. Criterion 2.</td></tr><tr><td><code>Infrastructure/Persistence/AuditWriter.cs</code>, <code>DependencyInjection.cs</code></td><td>Inserts one <code>AuditEvent</code>, time from <code>TimeProvider</code>, text cut to column sizes. Criterion 2.</td></tr></tbody></table></div>
+<p><strong>Front end (<code>web/src/app/</code>)</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it does</th></tr></thead><tbody><tr><td><code>features/login/login.ts</code>, <code>.html</code>, <code>.scss</code></td><td>Dev sign-in screen: list of people as buttons, loading and error states. Criterion 1.</td></tr><tr><td><code>auth/auth.service.ts</code>, <code>models.ts</code></td><td>Token in a signal; <code>devUsers()</code>, <code>signInAs()</code>, <code>signOut()</code>. The T-02 stub people were removed.</td></tr><tr><td><code>auth/auth.interceptor.ts</code></td><td>Bearer header for our API only; 401 clears session. Skips requests until config is ready (bug fix, see Findings).</td></tr><tr><td><code>auth/auth.guard.ts</code>, <code>app.routes.ts</code>, <code>app.config.ts</code></td><td>Signed-out goes to <code>/login</code>; <code>/login</code> route; interceptor registered.</td></tr><tr><td><code>layout/top-bar.ts</code>, <code>.html</code>, <code>features/placeholder/placeholder.ts</code>, <code>config/config-error.html</code></td><td>Show the signed-in person and sign out; small adjustments. Not read line by line.</td></tr></tbody></table></div>
+<p><strong>Tests</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it checks</th></tr></thead><tbody><tr><td><code>auth/auth.interceptor.spec.ts</code></td><td>Header added for our API only; 401 signs out; 500 does not; config-not-ready regression.</td></tr><tr><td><code>auth/auth.service.spec.ts</code>, <code>auth.guard.spec.ts</code>, <code>features/login/login.spec.ts</code></td><td>Sign in, sign out, guard redirect, login states.</td></tr><tr><td><code>layout/top-bar.spec.ts</code>, <code>app.routes.spec.ts</code>, <code>app.spec.ts</code>, <code>role-guard.spec.ts</code>, <code>config/runtime-config.spec.ts</code></td><td>Updated for the new auth service. Not read in detail.</td></tr></tbody></table></div>
+<p>The caller reported 13 files / 74 tests passing. There are no back-end automated tests (Phase 5).</p>
+<p><strong>Docs and tooling (not the story)</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it is</th></tr></thead><tbody><tr><td><code>ai/specs/us01-sign-in-by-role/*</code> (spec, plan, research, data-model, quickstart, tasks, contracts, checklist)</td><td>Spec set for SCRUM-8. Related.</td></tr><tr><td><code>ai/specs/4c-dev-authentication/tasks.md</code></td><td>4c task ticks and notes. Related.</td></tr><tr><td><code>.claude/skills/ci-check/SKILL.md</code></td><td>New skill that runs the CI checks locally. Unrelated to the story.</td></tr><tr><td><code>.github/workflows/checks.yml</code></td><td>CI now calls <code>npm run format:check</code>, <code>test:ci</code>, <code>audit:ci</code>. Tooling.</td></tr><tr><td><code>web/package.json</code>, <code>.prettierrc</code>, <code>angular.json</code>, <code>tsconfig.app.json</code>, <code>tsconfig.spec.json</code>, <code>src/index.html</code>, <code>src/main.ts</code></td><td>Scripts and formatting/config changes. Tooling, not read in detail.</td></tr></tbody></table></div>
+<h2 id="design-versus-code">Design versus code</h2>
+<div class="table"><table><thead><tr><th>Point</th><th>Design says</th><th>Code does</th><th>Match?</th></tr></thead><tbody><tr><td>Login screen</td><td>S-01 (Confluence 65835): a select "Choose dev user" and a "Sign in" button</td><td>A list of buttons, one per person, showing name and roles. Repo <code>ai/design/wireframes/login.md</code> also draws a list and says it is a sketch, not the Phase 3a wireframe</td><td class="st warn">Differs</td></tr><tr><td>Login title and a11y</td><td>S-01: title "Leave Management", visible labels, errors announced</td><td>Heading "Sign in"; errors use <code>role="alert"</code>; buttons have <code>aria-label</code></td><td class="st warn">Partly</td></tr><tr><td>403 screen</td><td>S-12 (65835): safe message with "Back to dashboard"</td><td>Screens never show 403: <code>roleGuard</code> goes to the not-found view. The 403 is seen only at the API</td><td class="st warn">Differs (screen side)</td></tr><tr><td>Dev-only guard</td><td>ADR 5 (1277954): dev mode blocked outside Development by a start-up check; <code>security.md</code> rule 6 adds Demo</td><td><code>AuthSetup</code> throws unless Development or Demo; EntraId throws "arrives in 4g". Caller reported Production, Demo without key and EntraId refuse to start</td><td class="st ok">Yes (Demo is the repo rule)</td></tr><tr><td>Same user in both modes</td><td>1277954 learning point 5: same claims in both modes</td><td>Claims <code>sub</code>, <code>name</code>, <code>email</code>, <code>role</code>; business code does not read <code>Auth:Mode</code>. <code>Program.cs</code> reads <code>authMode</code> to map dev endpoints</td><td class="st ok">Yes, one small read in Program.cs</td></tr><tr><td>Token</td><td>Rule 7: 60 min, memory only, no manager in token</td><td><code>LifetimeMinutes</code> setting (60 value not read in the json), signal storage, no manager claim</td><td class="st ok">Yes</td></tr><tr><td>Deny by default</td><td>Rule 2</td><td>Fallback policy; dev endpoints and <code>/health</code> are <code>AllowAnonymous</code></td><td class="st ok">Yes</td></tr><tr><td>401 versus 403</td><td>Jira: 403 and audited; research D2: 401 not audited</td><td>401 writes nothing; 403 for a signed-in person writes a row</td><td class="st ok">Yes</td></tr><tr><td>EntityId</td><td>Rule 12: ids and values only</td><td>Route pattern, for example <code>/api/admin/ping</code> (not the raw URL)</td><td class="st ok">Yes</td></tr><tr><td>Audit row contents</td><td>Rule 12 and BR-01 concern "no personal data"</td><td>Action, EntityType, EntityId, actor id, <code>{"policy":...}</code>, trace id. No name, email or token</td><td class="st ok">Yes</td></tr><tr><td>Append-only audit</td><td>Rule 14; insert-only permission and trigger in 4e</td><td><code>AuditWriter</code> only inserts. No DB permission or trigger</td><td class="st bad">Not built (4e)</td></tr><tr><td>Audit in same transaction</td><td>Rule 14</td><td>Own <code>SaveChanges</code> per refusal; there is no business transaction for a refusal (research D4)</td><td class="st warn">Differs by design</td></tr><tr><td>Errors</td><td>Rule 10: ProblemDetails</td><td>403 and 404 from the framework and <code>Results.Problem</code>. Body of 403 was reported as ProblemDetails by the caller</td><td class="st ok">Yes</td></tr><tr><td><code>/api/me</code></td><td>Dev-auth flow: after sign-in the app calls <code>/api/me</code></td><td>The web app never calls <code>/api/me</code>; it uses the <code>user</code> in the token response</td><td class="st warn">Differs</td></tr><tr><td>Definition of Done (491521)</td><td>Each criterion has a test; audit for state change</td><td>Web unit tests only; no back-end test</td><td class="st warn">Partly</td></tr></tbody></table></div>
+<p><strong>Design documents used:</strong></p>
+<ul><li>Jira SCRUM-8 (facts given in the prompt)</li><li>Confluence LMA 98443 Phase 1: Requirements Overview (excerpt)</li><li>Confluence LMA 491521 Phase 2: Planning (excerpt)</li><li>Confluence LMA 65835 Phase 3a: UI/UX Design (excerpt)</li><li>Confluence LMA 1277954 Phase 3b: High-Level Design (excerpt)</li><li><code>ai/steering/*</code>, <code>ai/design/flows/dev-auth.md</code>, <code>ai/design/wireframes/login.md</code></li><li><code>ai/specs/us01-sign-in-by-role/</code> (<code>tasks.md</code>, <code>research.md</code> read; the other files not read in detail) and <code>ai/specs/4c-dev-authentication/tasks.md</code></li></ul>
+<p><strong>Looked for and not found:</strong> Confluence 3g security design page (not in the space page list). Phase 3d API design: only its outline was read, so <code>/api/me</code> and <code>/api/dev/*</code> were not compared.</p>
+<h2 id="state-of-the-tasks">State of the tasks</h2>
+<p><code>us01-sign-in-by-role/tasks.md</code> (14 tasks): 11 ticked, 3 open.</p>
+<ul><li>Done: T001 to T005, T007 to T012</li><li>Open: T006 (owner browser click-through), T013 (<code>/review</code>), T014 (<code>/learn</code>, <code>/status</code>)</li></ul>
+<p><code>4c-dev-authentication/tasks.md</code> (10 tasks): 8 ticked, 2 open.</p>
+<ul><li>Done: T1 to T8</li><li>Open: T9 (owner end-to-end check), T10 (README, review, learn, status)</li></ul>
+<p>The tasks note says 73 web tests; the caller reported 74 after the interceptor fix.</p>
+<h2 id="findings-and-gaps">Findings and gaps</h2>
+<ul><li><strong>Interceptor bug, fixed in this work:</strong> the interceptor read the API URL before <code>config.json</code> was loaded, which showed the "configuration could not be loaded" page. It now skips requests until config is ready. Regression test in <code>auth.interceptor.spec.ts</code>.</li><li><strong>Jira wording:</strong> "/admin" does not exist as a screen path. The story is proved with <code>GET /api/admin/ping</code>, a probe meant to be removed later.</li><li><strong>Browser screens:</strong> a forbidden route gives the not-found screen with no audit row. Only API refusals are audited. Whether the story means the screen path too is for the owner to decide.</li><li><strong>Login screen</strong> is a button list, not the S-01 select box (Confluence). Repo wireframe already follows the list. Confluence may be the older source; the evidence does not settle it.</li><li><strong>Audit is append-only by convention only.</strong> No insert-only permission or trigger until 4e.</li><li><strong>PR scope:</strong> one PR holds the story, the whole 4c implementation, the <code>ci-check</code> skill, CI workflow edits and web config changes. Harder to review and to revert.</li><li><strong>Not verified:</strong> no browser run (T006); no back-end automated tests; <code>/review</code> (security rules 1, 2, 3, 7, 10, 12, 14) not done; <code>/api/me</code> is not used by the web app.</li><li><strong>Audit row for tampered tokens:</strong> none, by design (401).</li><li>I did not build or run anything. The run results above come from the caller.</li></ul>
+<h2 id="why-it-is-built-this-way">Why it is built this way</h2>
+<div class="table"><table><thead><tr><th>Decision</th><th>Chosen</th><th>Rejected, and why</th></tr></thead><tbody><tr><td>Where to audit 403</td><td>One <code>IAuthorizationMiddlewareResultHandler</code> (research D1)</td><td>Audit in each endpoint (easy to forget); status-code middleware (cannot see policy name); MVC filter (not used in minimal APIs)</td></tr><tr><td>Audit 401?</td><td class="st bad">No (D2)</td><td>Anonymous noise, a way to fill the table</td></tr><tr><td>Audit row content</td><td>Route pattern, policy name, ids (D3)</td><td>Full URL or role list: may carry client text</td></tr><tr><td>Audit failure</td><td>Log and still return 403 (D4)</td><td>Fail the request: an audit outage would lock people out</td></tr><tr><td>Proof endpoint</td><td><code>GET /api/admin/ping</code> (D5)</td><td>Test-only endpoint (no test project yet); wait for 4f</td></tr><tr><td>Navigation</td><td>One <code>NAV_ITEMS</code> table for links and routes (D6)</td><td>Separate lists that can drift</td></tr><tr><td>Token storage</td><td>Memory signal</td><td>localStorage: readable by script, survives reload</td></tr><tr><td>Sign-in modes</td><td>Dev now, Entra ID later, one claims shape (ADR 5)</td><td>Dev-only code paths in business logic</td></tr></tbody></table></div>
+<h2 id="interview-practice">Interview practice</h2>
+<ol><li><strong>Q:</strong> What is the difference between 401 and 403, and which do you audit? <strong>A:</strong> 401 means "I do not know who you are". 403 means "I know you, but you may not". We audit only 403 because it has a known actor and signals a real attempt.</li><li><strong>Q:</strong> Why a custom <code>IAuthorizationMiddlewareResultHandler</code>? <strong>A:</strong> It runs right after the policy decision, so every protected endpoint is covered, now and later. It also knows the policy name.</li><li><strong>Q:</strong> Why is the token kept in memory and not localStorage? <strong>A:</strong> A script injected into the page can read localStorage. Memory is lost on reload, which costs convenience but is safer for a dev-mode app.</li><li><strong>Q:</strong> Hiding the Admin link in Angular, is that security? <strong>A:</strong> No. It is convenience. The server checks the policy on every call (rule 1).</li><li><strong>Q:</strong> How do you stop dev sign-in reaching production? <strong>A:</strong> <code>AddLeaveAuthentication</code> checks mode and environment at start-up and refuses to start. The dev endpoints are mapped only in Dev mode.</li><li><strong>Q:</strong> What does the audit row hold and why not the URL? <strong>A:</strong> Action, route pattern, actor id, policy name, trace id. Never names, emails or tokens. The raw URL could hold client-typed text.</li></ol>
+<p><strong>Teach-back (answer in your own words):</strong></p>
+<ol><li>Trace the request from clicking a person on <code>/login</code> to seeing <code>/dashboard</code>. Name each file and endpoint.</li><li>Why does the 403 handler catch exceptions from the audit write, and what would go wrong if it did not?</li><li>The interceptor bug showed the "configuration could not be loaded" page. Explain the cause and why the fix is safe.</li></ol>
+</main>
+<footer>Generated from US-01-sign-in-by-role.md by US-knowledge/build-html.js. Edit the .md file, then run the script again.</footer>
+</div>
+</body>
+</html>
