@@ -1,20 +1,28 @@
-import { signal } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ConfigState, RuntimeConfigService } from '../config/runtime-config';
+import { API_URL } from '../api-config';
 import { AuthService } from './auth.service';
-import { normalizeRoles } from './models';
+import { TokenResponse, normalizeRoles } from './models';
 
-function createService(state: ConfigState, devStub: boolean): AuthService {
+const API = 'http://api.test';
+
+function setup() {
   TestBed.configureTestingModule({
     providers: [
-      {
-        provide: RuntimeConfigService,
-        useValue: { state: signal(state), config: { apiUrl: 'http://api.test', devStub } },
-      },
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      { provide: API_URL, useValue: API },
     ],
   });
-  return TestBed.inject(AuthService);
+  return { auth: TestBed.inject(AuthService), http: TestBed.inject(HttpTestingController) };
 }
+
+const tokenResponse = (roles: string[]): TokenResponse => ({
+  accessToken: 'jwt-value',
+  expiresAtUtc: '2026-11-10T12:00:00Z',
+  user: { id: 3, name: 'Arjun Das', email: 'arjun.das@example.test', roles },
+});
 
 describe('normalizeRoles', () => {
   it('always includes Employee and keeps role order stable', () => {
@@ -31,49 +39,80 @@ describe('normalizeRoles', () => {
 });
 
 describe('AuthService', () => {
-  it('starts as the stub Employee when the stub is enabled', () => {
-    const auth = createService('ready', true);
+  it('starts signed out with no person, roles or token', () => {
+    const { auth } = setup();
 
-    expect(auth.person()?.name).toBe('Demo Employee');
-    expect(auth.roles()).toEqual(['Employee']);
-  });
-
-  it('gives the right roles for each of the four stub people', () => {
-    const auth = createService('ready', true);
-    const expected: Record<string, string[]> = {
-      'stub-employee': ['Employee'],
-      'stub-manager': ['Employee', 'Manager'],
-      'stub-hr': ['Employee', 'HR'],
-      'stub-admin': ['Employee', 'Admin'],
-    };
-
-    expect(auth.stubPeople.length).toBe(4);
-    for (const [id, roles] of Object.entries(expected)) {
-      expect(auth.useStubPerson(id)).toBe(true);
-      expect([...auth.roles()]).toEqual(roles);
-    }
-  });
-
-  it('ignores an unknown stub person id', () => {
-    const auth = createService('ready', true);
-
-    expect(auth.useStubPerson('nobody')).toBe(false);
-    expect(auth.person()?.id).toBe('stub-employee');
-  });
-
-  it('has no person and no stub people when devStub is false', () => {
-    const auth = createService('ready', false);
-
+    expect(auth.isSignedIn()).toBe(false);
     expect(auth.person()).toBeNull();
     expect(auth.roles()).toEqual([]);
-    expect(auth.stubPeople).toEqual([]);
-    expect(auth.useStubPerson('stub-admin')).toBe(false);
-    expect(auth.person()).toBeNull();
+    expect(auth.accessToken()).toBeNull();
   });
 
-  it('has no person when the configuration failed to load', () => {
-    const auth = createService('failed', true);
+  it('loads the demo people from the API', async () => {
+    const { auth, http } = setup();
 
-    expect(auth.person()).toBeNull();
+    const promise = auth.devUsers();
+    http.expectOne(`${API}/api/dev/users`).flush([
+      {
+        id: 1,
+        fullName: 'Meera Rao',
+        email: 'meera.rao@example.test',
+        roles: ['Employee', 'Manager'],
+      },
+    ]);
+
+    expect((await promise).map((p) => p.fullName)).toEqual(['Meera Rao']);
+  });
+
+  it('signs in: posts the id, keeps the token and exposes the person and roles', async () => {
+    const { auth, http } = setup();
+
+    const promise = auth.signInAs(3);
+    const request = http.expectOne(`${API}/api/dev/token`);
+    expect(request.request.body).toEqual({ employeeId: 3 });
+    request.flush(tokenResponse(['Employee', 'Admin']));
+
+    expect(await promise).toBe(true);
+    expect(auth.isSignedIn()).toBe(true);
+    expect(auth.person()).toEqual({ id: '3', name: 'Arjun Das', roles: ['Employee', 'Admin'] });
+    expect(auth.accessToken()).toBe('jwt-value');
+  });
+
+  it('stays signed out when the API refuses the person', async () => {
+    const { auth, http } = setup();
+
+    const promise = auth.signInAs(99999);
+    http
+      .expectOne(`${API}/api/dev/token`)
+      .flush({ title: 'Person not found' }, { status: 404, statusText: 'Not Found' });
+
+    expect(await promise).toBe(false);
+    expect(auth.isSignedIn()).toBe(false);
+    expect(auth.accessToken()).toBeNull();
+  });
+
+  it('never writes the token to browser storage', async () => {
+    const { auth, http } = setup();
+    const local = vi.spyOn(Storage.prototype, 'setItem');
+
+    const promise = auth.signInAs(3);
+    http.expectOne(`${API}/api/dev/token`).flush(tokenResponse(['Employee']));
+    await promise;
+
+    expect(local).not.toHaveBeenCalled();
+    local.mockRestore();
+  });
+
+  it('signs out: clears the person and the token', async () => {
+    const { auth, http } = setup();
+    const promise = auth.signInAs(3);
+    http.expectOne(`${API}/api/dev/token`).flush(tokenResponse(['Employee']));
+    await promise;
+
+    auth.signOut();
+
+    expect(auth.isSignedIn()).toBe(false);
+    expect(auth.accessToken()).toBeNull();
+    expect(auth.roles()).toEqual([]);
   });
 });

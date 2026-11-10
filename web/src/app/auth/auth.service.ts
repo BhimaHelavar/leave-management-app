@@ -1,48 +1,62 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { RuntimeConfigService } from '../config/runtime-config';
-import { Person, Role, normalizeRoles } from './models';
+import { firstValueFrom } from 'rxjs';
+import { API_URL } from '../api-config';
+import { DevUser, Person, Role, TokenResponse, normalizeRoles } from './models';
 
-/** Local demo people for the shell until real sign-in (spec 4c) exists. Fake data, not real users. */
-export const STUB_PEOPLE: readonly Person[] = [
-  { id: 'stub-employee', name: 'Demo Employee', roles: normalizeRoles(['Employee']) },
-  { id: 'stub-manager', name: 'Demo Manager', roles: normalizeRoles(['Employee', 'Manager']) },
-  { id: 'stub-hr', name: 'Demo HR', roles: normalizeRoles(['Employee', 'HR']) },
-  { id: 'stub-admin', name: 'Demo Admin', roles: normalizeRoles(['Employee', 'Admin']) },
-];
+interface Session {
+  token: string;
+  person: Person;
+}
 
 /**
- * The one place the shell asks "who is signed in?". Spec 4c replaces the stub with the person
- * read from the API's token and `/api/me`, without changing callers.
+ * The one place the app asks "who is signed in?".
  *
+ * The access token is kept in a signal, which lives in memory only, so a page reload signs the
+ * person out (spec 4c, R8). It is never written to localStorage, sessionStorage or a cookie.
  * Hiding a link based on these roles is a convenience only; the server decides (security rule 1).
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly runtimeConfig = inject(RuntimeConfigService);
-  private readonly current = signal<Person | null>(null);
+  private readonly http = inject(HttpClient);
+  private readonly apiUrl = inject(API_URL);
+  private readonly session = signal<Session | null>(null);
 
-  readonly person = this.current.asReadonly();
-  readonly roles = computed<readonly Role[]>(() => this.current()?.roles ?? []);
+  readonly person = computed(() => this.session()?.person ?? null);
+  readonly roles = computed<readonly Role[]>(() => this.session()?.person.roles ?? []);
+  readonly isSignedIn = computed(() => this.session() !== null);
 
-  /** The stub is on only when config.json says so; the deployed file never does. */
-  readonly stubEnabled =
-    this.runtimeConfig.state() === 'ready' && this.runtimeConfig.config.devStub;
+  /** Read by the HTTP interceptor only. Never log or display it. */
+  accessToken(): string | null {
+    return this.session()?.token ?? null;
+  }
 
-  readonly stubPeople = this.stubEnabled ? STUB_PEOPLE : [];
+  /** The demo people for the sign-in screen. Rejects if the API is unreachable or not in Dev mode. */
+  devUsers(): Promise<DevUser[]> {
+    return firstValueFrom(this.http.get<DevUser[]>(`${this.apiUrl}/api/dev/users`));
+  }
 
-  constructor() {
-    if (this.stubEnabled) {
-      this.current.set(STUB_PEOPLE[0]);
+  /** Asks the API for a token for this person. Returns false when the API refuses. */
+  async signInAs(employeeId: number): Promise<boolean> {
+    try {
+      const response = await firstValueFrom(
+        this.http.post<TokenResponse>(`${this.apiUrl}/api/dev/token`, { employeeId }),
+      );
+      this.session.set({
+        token: response.accessToken,
+        person: {
+          id: String(response.user.id),
+          name: response.user.name,
+          roles: normalizeRoles(response.user.roles),
+        },
+      });
+      return true;
+    } catch {
+      return false;
     }
   }
 
-  /** Switches the stub person. Does nothing (returns false) unless the stub is enabled. */
-  useStubPerson(id: string): boolean {
-    const person = this.stubPeople.find((p) => p.id === id);
-    if (!person) {
-      return false;
-    }
-    this.current.set(person);
-    return true;
+  signOut(): void {
+    this.session.set(null);
   }
 }

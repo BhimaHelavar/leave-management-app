@@ -18,29 +18,41 @@
       </nav>
     } @else {
       <nav class="links" aria-label="Main">
-        <button matButton type="button" [matMenuTriggerFor]="navMenu" aria-label="Open navigation menu">
+        <button
+          matButton
+          type="button"
+          [matMenuTriggerFor]="navMenu"
+          aria-label="Open navigation menu"
+        >
           Menu
         </button>
       </nav>
       <mat-menu #navMenu="matMenu">
         @for (item of items(); track item.path) {
-          <a mat-menu-item [routerLink]="'/' + item.path" routerLinkActive="active" ariaCurrentWhenActive="page">{{
-            item.label
-          }}</a>
+          <a
+            mat-menu-item
+            [routerLink]="'/' + item.path"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            >{{ item.label }}</a
+          >
         }
       </mat-menu>
     }
 
     <span class="spacer"></span>
 
-    <button matButton type="button" [matMenuTriggerFor]="userMenu" [attr.aria-label]="'Account menu for ' + p.name">
+    <button
+      matButton
+      type="button"
+      [matMenuTriggerFor]="userMenu"
+      [attr.aria-label]="'Account menu for ' + p.name"
+    >
       {{ p.name }}
     </button>
     <mat-menu #userMenu="matMenu">
       <button mat-menu-item type="button" disabled>Signed in as {{ p.name }}</button>
-      @for (stub of stubPeople; track stub.id) {
-        <button mat-menu-item type="button" (click)="switchTo(stub.id)">Switch to {{ stub.name }}</button>
-      }
+      <button mat-menu-item type="button" (click)="signOut()">Sign out</button>
     </mat-menu>
   }
 </mat-toolbar>

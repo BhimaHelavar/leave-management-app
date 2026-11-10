@@ -12,7 +12,9 @@ import { map } from 'rxjs';
 export class Placeholder {
   protected readonly title = toSignal(
     inject(ActivatedRoute).data.pipe(
-      map((data) => (typeof data['title'] === 'string' && data['title'] ? data['title'] : 'This section')),
+      map((data) =>
+        typeof data['title'] === 'string' && data['title'] ? data['title'] : 'This section',
+      ),
     ),
     { initialValue: 'This section' },
   );

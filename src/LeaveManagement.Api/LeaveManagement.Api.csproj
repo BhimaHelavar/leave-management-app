@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <!-- Only the dotnet-ef tool needs this (it runs the startup project), so it is not shipped with the app. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.*">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

@@ -1,0 +1,35 @@
+<section class="login" aria-labelledby="login-title">
+  <h1 id="login-title">Sign in</h1>
+  <p class="hint">Development sign-in: pick a demo person. No password is needed.</p>
+
+  @switch (state()) {
+    @case ('loading') {
+      <p role="status">Loading people…</p>
+    }
+    @case ('failed') {
+      <p role="alert">Could not load people. Is the API running?</p>
+      <button matButton="outlined" type="button" (click)="load()">Try again</button>
+    }
+    @case ('ready') {
+      @if (signInFailed()) {
+        <p role="alert">Sign-in failed. Try again or pick another person.</p>
+      }
+      <ul class="people">
+        @for (person of people(); track person.id) {
+          <li>
+            <button
+              matButton="outlined"
+              type="button"
+              [disabled]="busy()"
+              (click)="pick(person)"
+              [attr.aria-label]="'Sign in as ' + person.fullName"
+            >
+              <span class="name">{{ person.fullName }}</span>
+              <span class="roles">{{ person.roles.join(', ') }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  }
+</section>

@@ -4,38 +4,44 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
-import { RuntimeConfigService } from '../config/runtime-config';
+import { Person, Role, normalizeRoles } from '../auth/models';
 import { TopBar } from './top-bar';
 
 @Component({ template: '' })
 class Blank {}
 
+const EMPLOYEE: Person = { id: '4', name: 'Asha Nair', roles: normalizeRoles(['Employee']) };
+const ADMIN: Person = { id: '3', name: 'Arjun Das', roles: normalizeRoles(['Employee', 'Admin']) };
+
 interface Setup {
   fixture: ComponentFixture<TopBar>;
-  auth: AuthService;
+  person: ReturnType<typeof signal<Person | null>>;
+  signOut: ReturnType<typeof vi.fn>;
+  navigate: ReturnType<typeof vi.spyOn>;
   root: HTMLElement;
   narrow: BehaviorSubject<{ matches: boolean }>;
 }
 
-function setup(options: { devStub?: boolean; narrow?: boolean } = {}): Setup {
+function setup(options: { person?: Person | null; narrow?: boolean } = {}): Setup {
   const narrow = new BehaviorSubject({ matches: options.narrow ?? false });
+  const person = signal<Person | null>(options.person === undefined ? EMPLOYEE : options.person);
+  const signOut = vi.fn();
+  const auth = {
+    person,
+    roles: () => (person()?.roles ?? []) as readonly Role[],
+    signOut,
+  };
   TestBed.configureTestingModule({
     providers: [
       provideRouter([{ path: 'dashboard', component: Blank }]),
-      {
-        provide: RuntimeConfigService,
-        useValue: {
-          state: signal('ready'),
-          config: { apiUrl: 'http://api.test', devStub: options.devStub ?? true },
-        },
-      },
+      { provide: AuthService, useValue: auth },
       { provide: BreakpointObserver, useValue: { observe: () => narrow } },
     ],
   });
-  const auth = TestBed.inject(AuthService);
+  const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl');
   const fixture = TestBed.createComponent(TopBar);
   fixture.detectChanges();
-  return { fixture, auth, root: fixture.nativeElement as HTMLElement, narrow };
+  return { fixture, person, signOut, navigate, root: fixture.nativeElement as HTMLElement, narrow };
 }
 
 const linkLabels = (root: HTMLElement) =>
@@ -46,19 +52,21 @@ describe('TopBar', () => {
     const { root } = setup();
 
     expect(root.querySelector('.brand')?.textContent).toContain('Leave Management');
-    expect(root.textContent).toContain('Demo Employee');
+    expect(root.textContent).toContain('Asha Nair');
     expect(linkLabels(root)).toEqual(['Dashboard', 'My requests']);
   });
 
-  it('shows the Admin links after switching to the Admin person', async () => {
-    const { fixture, auth, root } = setup();
+  it('shows the Admin links for an Admin', () => {
+    const { root } = setup({ person: ADMIN });
 
-    auth.useStubPerson('stub-admin');
-    fixture.detectChanges();
-    await fixture.whenStable();
-
-    expect(linkLabels(root)).toEqual(['Dashboard', 'My requests', 'Leave types', 'Holidays', 'Audit']);
-    expect(root.textContent).toContain('Demo Admin');
+    expect(linkLabels(root)).toEqual([
+      'Dashboard',
+      'My requests',
+      'Leave types',
+      'Holidays',
+      'Audit',
+    ]);
+    expect(root.textContent).toContain('Arjun Das');
   });
 
   it('collapses the links into one labelled menu button at narrow width', () => {
@@ -82,7 +90,7 @@ describe('TopBar', () => {
   it('labels the user menu with the person name', () => {
     const { root } = setup();
 
-    expect(root.querySelector('button[aria-label="Account menu for Demo Employee"]')).not.toBeNull();
+    expect(root.querySelector('button[aria-label="Account menu for Asha Nair"]')).not.toBeNull();
   });
 
   it('marks the current page with aria-current', async () => {
@@ -113,10 +121,29 @@ describe('TopBar', () => {
   });
 
   it('shows only the app name when nobody is signed in', () => {
-    const { root } = setup({ devStub: false });
+    const { root } = setup({ person: null });
 
     expect(root.querySelector('.brand')).not.toBeNull();
     expect(root.querySelector('nav')).toBeNull();
     expect(root.querySelector('button')).toBeNull();
+  });
+
+  it('signs out and goes to the sign-in screen from the user menu', async () => {
+    const { fixture, signOut, navigate } = setup();
+    navigate.mockResolvedValue(true);
+
+    (
+      fixture.nativeElement.querySelector('button[aria-label^="Account menu"]') as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const item = Array.from(document.querySelectorAll('[mat-menu-item]')).find(
+      (el) => el.textContent?.trim() === 'Sign out',
+    ) as HTMLElement;
+    item.click();
+    await fixture.whenStable();
+
+    expect(signOut).toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith('/login');
   });
 });
