@@ -11,6 +11,8 @@ Do not write feature code without an approved spec in `ai/specs/<id>-<name>/`.
 3. If the spec turns out to be wrong, stop, fix the spec, get approval again, then continue.
 4. Finish with `/review`, `/learn`, `/status`.
 
+Design graphs (Mermaid) and wireframes (ASCII) live in `ai/design/`; read `ai/design/README.md` before writing a design and update it with the design.
+
 Skills: `/spec-new`, `/spec-implement`, `/review`, `/learn`, `/status`. Agents: `spec-writer`, `backend-engineer`, `frontend-engineer`, `test-engineer`, `code-reviewer`, `security-reviewer`, `learning-coach`. Full guide: `ai/README.md`. Current status: `ai/specs/INDEX.md`.
 
 ## Golden rules

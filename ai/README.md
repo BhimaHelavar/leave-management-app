@@ -8,6 +8,7 @@ Claude Code finds a few things only in fixed places, so the setup is split in tw
 | `CLAUDE.md` (repo root) | Short rules, imports the steering files below | Claude Code loads it at every session start |
 | `ai/steering/` | Standing facts: product, tech, structure, security, learning | Imported by `CLAUDE.md`, so always in context |
 | `ai/specs/` | One folder per feature: requirements, design, tasks | The source of truth for what to build |
+| `ai/design/` | Graphs (Mermaid) and wireframes (ASCII): architecture, data model, flows, screens | Pictures of the whole system, linked from each `design.md` |
 | `ai/decisions/` | Index of architecture decisions | Why things are the way they are |
 | `ai/learning/` | Study notes and interview Q&A per feature | The learning goal of the project |
 | `.claude/agents/` | Specialist subagents | Claude Code only looks here |
