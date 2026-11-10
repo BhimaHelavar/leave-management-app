@@ -1,3 +1,5 @@
+using LeaveManagement.Api.Admin;
+using LeaveManagement.Api.Auth;
 using LeaveManagement.Application;
 using LeaveManagement.Infrastructure;
 using LeaveManagement.Infrastructure.Persistence;
@@ -29,6 +31,9 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Authentication, the deny-by-default fallback policy, role policies and the dev sign-in rate limiter.
+builder.Services.AddLeaveAuthentication(builder.Configuration, builder.Environment);
+
 var app = builder.Build();
 
 // Migrations and demo data run at startup in Development only (3b decision).
@@ -53,8 +58,15 @@ app.Use(async (context, next) =>
 
 app.UseCors("web");
 
-// The fallback "require authenticated user" policy is added in Phase 4c together with
-// the authentication scheme. Until then /health is the only endpoint.
+// Order matters: rate limit first, then find out who the caller is, then decide what they may do.
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapAuthEndpoints(mapDevEndpoints: authMode == "Dev");
+app.MapAdminEndpoints();
+
+// /health stays public on purpose; everything else needs a signed-in person (fallback policy).
 app.MapGet("/health", async (LeaveDbContext db, TimeProvider time, CancellationToken ct) =>
     {
         var databaseUp = await db.Database.CanConnectAsync(ct);

@@ -6,7 +6,12 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:ci": "ng test --watch=false",
+    "format": "prettier --write \"src/**/*.{ts,html,scss}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,html,scss}\"",
+    "audit:ci": "npm audit --omit=dev --audit-level=high",
+    "ci:check": "npm run format:check && npm run test:ci && npm run build"
   },
   "private": true,
   "packageManager": "npm@10.9.4",

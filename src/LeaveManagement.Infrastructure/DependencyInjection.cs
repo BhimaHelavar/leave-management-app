@@ -1,7 +1,9 @@
+using LeaveManagement.Application.Auditing;
 using LeaveManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace LeaveManagement.Infrastructure;
 
@@ -19,6 +21,10 @@ public static class DependencyInjection
                 "ConnectionStrings:Default is not set. See appsettings.Development.json or the compose file.");
 
         services.AddDbContext<LeaveDbContext>(options => options.UseSqlServer(connectionString));
+
+        // "Now" comes from TimeProvider (golden rule); the host also registers it, TryAdd keeps one.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<IAuditWriter, AuditWriter>();
 
         return services;
     }

@@ -3,16 +3,28 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
 import { routes } from './app.routes';
+import { AuthService } from './auth/auth.service';
+import { normalizeRoles } from './auth/models';
 import { ConfigState, RuntimeConfigService } from './config/runtime-config';
 
 function setup(state: ConfigState) {
+  const person = signal({ id: '4', name: 'Asha Nair', roles: normalizeRoles(['Employee']) });
   TestBed.configureTestingModule({
     imports: [App],
     providers: [
       provideRouter(routes),
       {
         provide: RuntimeConfigService,
-        useValue: { state: signal(state), config: { apiUrl: 'http://api.test', devStub: true } },
+        useValue: { state: signal(state), config: { apiUrl: 'http://api.test', devStub: false } },
+      },
+      {
+        provide: AuthService,
+        useValue: {
+          person,
+          roles: () => person().roles,
+          isSignedIn: signal(true),
+          signOut: () => undefined,
+        },
       },
     ],
   });

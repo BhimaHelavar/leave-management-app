@@ -1,6 +1,12 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree, provideRouter } from '@angular/router';
+import {
+  ActivatedRouteSnapshot,
+  Router,
+  RouterStateSnapshot,
+  UrlTree,
+  provideRouter,
+} from '@angular/router';
 import { AuthService } from './auth.service';
 import { Role } from './models';
 import { roleGuard } from './role-guard';
@@ -10,9 +16,8 @@ function run(path: string | undefined, roles: readonly Role[]): boolean | UrlTre
     providers: [provideRouter([]), { provide: AuthService, useValue: { roles: signal(roles) } }],
   });
   const route = { routeConfig: path === undefined ? null : { path } } as ActivatedRouteSnapshot;
-  return TestBed.runInInjectionContext(() =>
-    roleGuard(route, {} as RouterStateSnapshot),
-  ) as boolean | UrlTree;
+  return TestBed.runInInjectionContext(() => roleGuard(route, {} as RouterStateSnapshot)) as
+    boolean | UrlTree;
 }
 
 describe('roleGuard', () => {

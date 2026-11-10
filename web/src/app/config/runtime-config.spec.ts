@@ -13,8 +13,12 @@ describe('parseRuntimeConfig', () => {
   });
 
   it('keeps devStub only when it is exactly true', () => {
-    expect(parseRuntimeConfig({ apiUrl: 'http://localhost:5000', devStub: true })?.devStub).toBe(true);
-    expect(parseRuntimeConfig({ apiUrl: 'http://localhost:5000', devStub: 'yes' })?.devStub).toBe(false);
+    expect(parseRuntimeConfig({ apiUrl: 'http://localhost:5000', devStub: true })?.devStub).toBe(
+      true,
+    );
+    expect(parseRuntimeConfig({ apiUrl: 'http://localhost:5000', devStub: 'yes' })?.devStub).toBe(
+      false,
+    );
   });
 
   it.each([
