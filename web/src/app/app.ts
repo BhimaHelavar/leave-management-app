@@ -1,30 +1,16 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { Health, HealthService } from './health.service';
+import { Component, inject } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+import { ConfigError } from './config/config-error';
+import { RuntimeConfigService } from './config/runtime-config';
+import { TopBar } from './layout/top-bar';
 
-type ApiState =
-  | { kind: 'loading' }
-  | { kind: 'ok'; health: Health }
-  | { kind: 'error' };
-
+/** The app shell: top bar plus the page for the current route. */
 @Component({
   selector: 'app-root',
+  imports: [ConfigError, TopBar, RouterOutlet],
   styleUrl: './app.scss',
   templateUrl: './app.html',
 })
-export class App implements OnInit {
-  private readonly healthService = inject(HealthService);
-
-  protected readonly state = signal<ApiState>({ kind: 'loading' });
-
-  ngOnInit(): void {
-    this.check();
-  }
-
-  protected check(): void {
-    this.state.set({ kind: 'loading' });
-    this.healthService.check().subscribe({
-      next: (health) => this.state.set({ kind: 'ok', health }),
-      error: () => this.state.set({ kind: 'error' }),
-    });
-  }
+export class App {
+  protected readonly config = inject(RuntimeConfigService);
 }

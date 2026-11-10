@@ -1,1 +1,76 @@
-/* You can add global styles to this file, and also import other style files */
+@use '@angular/material' as mat;
+
+// Theme from the Phase 3a design system (Confluence LMA, "Phase 3a: UI/UX Design", section 5).
+// Angular Material 22 uses the M3 system tokens. The base is the built-in azure palette; the
+// Phase 3a colors replace the system tokens below so the brand color is exact.
+// Light theme only: Phase 3a defines no dark palette.
+html {
+  color-scheme: light;
+
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        theme-type: light,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+
+  // Phase 3a: Primary deep blue #1F4E79 (buttons, links, header), Error red #B3261E.
+  // Contrast of each pair is recorded in ai/specs/t02-angular-shell/research.md (R11).
+  @include mat.theme-overrides(
+    (
+      primary: #1f4e79,
+      on-primary: #ffffff,
+      error: #b3261e,
+      on-error: #ffffff,
+    )
+  );
+
+  // Phase 3a semantic colors, used later by status chips. A status always has a text label
+  // and an icon as well; color is never the only signal (WCAG 2.1 AA).
+  --lms-success: #1b6e3c;
+  --lms-warning-text: #7a4b00;
+  --lms-warning-surface: #fff3d6;
+  --lms-error: #b3261e;
+  --lms-neutral: #5f6368;
+
+  // Phase 3a spacing (8 px grid) and corners.
+  --lms-space-1: 4px;
+  --lms-space-2: 8px;
+  --lms-space-3: 16px;
+  --lms-space-4: 24px;
+  --lms-space-5: 32px;
+  --lms-radius-small: 4px;
+  --lms-radius-card: 8px;
+  --lms-content-max-width: 1120px;
+}
+
+// Phase 3a typography: Roboto, base 16 px, line height 1.5.
+// Roboto is not downloaded: the web server's Content-Security-Policy allows only its own origin,
+// so a font from a CDN would be blocked. Devices without Roboto use the system sans-serif font.
+body {
+  margin: 0;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font-family: Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+// Visible keyboard focus everywhere (WCAG 2.1 AA).
+:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

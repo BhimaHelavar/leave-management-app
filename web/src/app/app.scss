@@ -1,47 +1,10 @@
-.shell {
-  max-width: 40rem;
-  margin: 3rem auto;
-  padding: 0 1rem;
-  font-family: system-ui, sans-serif;
+// Page width and padding are set by each page (max width 1120 px, Phase 3a layout).
+// The skip link moves focus here by code, so a focus ring on the whole page area would only be noise.
+main {
+  display: block;
+  min-height: calc(100vh - 64px);
 }
 
-.subtitle {
-  color: #555;
-}
-
-.card {
-  margin-top: 1.5rem;
-  padding: 1.25rem;
-  border: 1px solid #d0d5dd;
-  border-radius: 0.5rem;
-}
-
-.status {
-  font-weight: 600;
-
-  &.ok {
-    color: #027a48;
-  }
-
-  &.error {
-    color: #b42318;
-  }
-}
-
-dl {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.25rem 1rem;
-}
-
-dt {
-  color: #555;
-}
-
-dd {
-  margin: 0;
-}
-
-button {
-  margin-top: 0.75rem;
+main:focus {
+  outline: none;
 }

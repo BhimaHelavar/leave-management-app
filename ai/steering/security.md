@@ -7,7 +7,7 @@ These apply to every feature. A review fails if one is broken.
 3. **Two layers of authorization.** Role policies decide which endpoints you may call. Resource rules decide which records you may touch ("your direct reports", "not your own request"). Roles alone are not enough.
 4. **No IDOR.** Never trust an id from the client. Check the caller's right to that record. Return 404, not 403, for a record the caller may not see, so ids cannot be probed.
 5. **One switch for auth.** Dev mode and Entra ID mode produce the same claims (`sub`, `name`, `email`, `role`). Business code never reads `Auth:Mode`.
-6. **Dev mode is dev only.** The API refuses to start with `Auth:Mode = Dev` outside Development. The dev endpoints exist only in Dev mode.
+6. **Dev mode is dev only.** `Auth:Mode = Dev` is allowed only in the `Development` or `Demo` environment; the API refuses to start otherwise. `Demo` never migrates or seeds at startup, and a Demo deployment must be access-restricted to the owner. The dev endpoints exist only in Dev mode.
 7. **Tokens.** Short lifetime (60 minutes, no refresh in Dev). In the browser, the token lives in memory only. Never log tokens or full request bodies. Never put the manager or other changeable facts in the token; look them up.
 8. **Validation.** Separate DTOs from entities so a client cannot set `Status`, `Role` or ids (over-posting). Validate dates, half days and overlaps on the server.
 9. **Database safety.** EF Core parameterized queries only. Raw SQL only if parameterized. Constraints stay in the database as the second line of defence.

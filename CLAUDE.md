@@ -1,3 +1,4 @@
+
 # Leave Management (LMS)
 
 Employee leave management web app: Angular 22 + .NET 10 + SQL Server. A solo portfolio project with a second goal: the owner is learning to build and explain senior-level full-stack work. Build it the way a good senior team would, and explain the why.
@@ -10,8 +11,6 @@ Do not write feature code without an approved spec in `ai/specs/<id>-<name>/`.
 2. Implement one task at a time, in order. Run the build and tests for the files you touched. Tick the box only after the verify step passes.
 3. If the spec turns out to be wrong, stop, fix the spec, get approval again, then continue.
 4. Finish with `/review`, `/learn`, `/status`.
-
-Design graphs (Mermaid) and wireframes (ASCII) live in `ai/design/`; read `ai/design/README.md` before writing a design and update it with the design.
 
 Skills: `/spec-new`, `/spec-implement`, `/review`, `/learn`, `/status`. Agents: `spec-writer`, `backend-engineer`, `frontend-engineer`, `test-engineer`, `code-reviewer`, `security-reviewer`, `learning-coach`. Full guide: `ai/README.md`. Current status: `ai/specs/INDEX.md`.
 

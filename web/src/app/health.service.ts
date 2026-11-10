@@ -14,8 +14,9 @@ export interface Health {
 @Injectable({ providedIn: 'root' })
 export class HealthService {
   private readonly http = inject(HttpClient);
+  private readonly apiUrl = inject(API_URL);
 
   check(): Observable<Health> {
-    return this.http.get<Health>(`${API_URL}/health`);
+    return this.http.get<Health>(`${this.apiUrl}/health`);
   }
 }
