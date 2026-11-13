@@ -1,0 +1,95 @@
+<section class="apply" aria-labelledby="apply-title">
+  <h1 id="apply-title">Apply for leave</h1>
+
+  @if (loadingTypes()) {
+    <p role="status">Loading leave types…</p>
+  } @else if (typesError()) {
+    <div class="error" role="alert">
+      <p>Leave types could not be loaded.</p>
+      <button type="button" (click)="loadTypes()">Try again</button>
+    </div>
+  } @else {
+    <form (submit)="submit($event)" novalidate>
+      <div class="field">
+        <label for="leave-type">Leave type</label>
+        <select id="leave-type" (change)="onLeaveType($event)">
+          <option value="" [selected]="leaveTypeId() === ''">Choose a type</option>
+          @for (type of leaveTypes(); track type.leaveTypeId) {
+            <option [value]="type.leaveTypeId" [selected]="leaveTypeId() === '' + type.leaveTypeId">
+              {{ type.name }}
+            </option>
+          }
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="start-date">Start date</label>
+        <input id="start-date" type="date" [value]="startDate()" (input)="onStartDate($event)" />
+      </div>
+
+      <div class="field">
+        <label for="end-date">End date</label>
+        <input id="end-date" type="date" [value]="endDate()" (input)="onEndDate($event)" />
+      </div>
+
+      @if (canChooseHalfDay()) {
+        <div class="field">
+          <label for="half-day">Length of the day</label>
+          <select id="half-day" (change)="onHalfDay($event)">
+            <option value="None" [selected]="halfDay() === 'None'">Full day</option>
+            <option value="FirstHalf" [selected]="halfDay() === 'FirstHalf'">First half</option>
+            <option value="SecondHalf" [selected]="halfDay() === 'SecondHalf'">Second half</option>
+          </select>
+        </div>
+      }
+
+      <div class="field">
+        <label for="reason">Reason (optional)</label>
+        <textarea
+          id="reason"
+          rows="3"
+          [attr.maxlength]="reasonMaxLength"
+          [value]="reason()"
+          (input)="onReason($event)"
+        ></textarea>
+      </div>
+
+      <div class="preview" aria-live="polite">
+        @if (previewing()) {
+          <p>Counting working days…</p>
+        } @else if (preview(); as counted) {
+          <p class="count">
+            Working days counted: <strong>{{ counted.daysCount }}</strong>
+          </p>
+          <ul class="dates">
+            @for (date of counted.workingDays; track date) {
+              <li>{{ date }}</li>
+            }
+          </ul>
+          @if (counted.skippedHolidays.length > 0) {
+            <p class="skipped">Not counted (holidays): {{ counted.skippedHolidays.join(', ') }}.</p>
+          }
+          <p class="hint">This is a preview. The count is checked again when you apply.</p>
+        } @else if (previewNote(); as note) {
+          <p class="note">{{ note }}</p>
+        }
+      </div>
+
+      <button type="submit" [disabled]="!canSubmit()">
+        {{ sending() ? 'Saving…' : 'Apply for leave' }}
+      </button>
+    </form>
+
+    @if (errorMessage(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+
+    @if (saved(); as result) {
+      <p class="saved" role="status">
+        Your request was saved as {{ result.status }}: {{ result.daysCount }}
+        {{ result.daysCount === 1 ? 'day' : 'days' }} from {{ result.startDate }} to
+        {{ result.endDate }}.
+      </p>
+    }
+  }
+</section>

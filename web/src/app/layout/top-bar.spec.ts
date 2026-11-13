@@ -53,7 +53,7 @@ describe('TopBar', () => {
 
     expect(root.querySelector('.brand')?.textContent).toContain('Leave Management');
     expect(root.textContent).toContain('Asha Nair');
-    expect(linkLabels(root)).toEqual(['Dashboard', 'My requests']);
+    expect(linkLabels(root)).toEqual(['Dashboard', 'Apply for leave', 'My requests']);
   });
 
   it('shows the Admin links for an Admin', () => {
@@ -61,6 +61,7 @@ describe('TopBar', () => {
 
     expect(linkLabels(root)).toEqual([
       'Dashboard',
+      'Apply for leave',
       'My requests',
       'Leave types',
       'Holidays',

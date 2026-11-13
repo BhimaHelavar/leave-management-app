@@ -5,16 +5,22 @@ const labels = (roles: readonly Role[]) => visibleItems(roles).map((item) => ite
 
 describe('visibleItems', () => {
   it('shows Employee links only to an Employee', () => {
-    expect(labels(['Employee'])).toEqual(['Dashboard', 'My requests']);
+    expect(labels(['Employee'])).toEqual(['Dashboard', 'Apply for leave', 'My requests']);
   });
 
   it('adds Approvals for a Manager', () => {
-    expect(labels(['Employee', 'Manager'])).toEqual(['Dashboard', 'My requests', 'Approvals']);
+    expect(labels(['Employee', 'Manager'])).toEqual([
+      'Dashboard',
+      'Apply for leave',
+      'My requests',
+      'Approvals',
+    ]);
   });
 
   it('adds Reports, Exceptions and Audit for HR', () => {
     expect(labels(['Employee', 'HR'])).toEqual([
       'Dashboard',
+      'Apply for leave',
       'My requests',
       'Reports',
       'Exceptions',
@@ -25,6 +31,7 @@ describe('visibleItems', () => {
   it('adds Leave types, Holidays and Audit for an Admin', () => {
     expect(labels(['Employee', 'Admin'])).toEqual([
       'Dashboard',
+      'Apply for leave',
       'My requests',
       'Leave types',
       'Holidays',

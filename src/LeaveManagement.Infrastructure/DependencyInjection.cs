@@ -1,5 +1,6 @@
 using LeaveManagement.Application.Auditing;
 using LeaveManagement.Application.Balances;
+using LeaveManagement.Application.Leave;
 using LeaveManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -28,6 +29,10 @@ public static class DependencyInjection
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<IBalanceReader, BalanceReader>();
         services.AddScoped<IPendingLeaveReader, PendingLeaveReader>();
+        services.AddScoped<IApplicantReader, ApplicantReader>();
+        services.AddScoped<IHolidayReader, HolidayReader>();
+        services.AddScoped<ILeaveTypeReader, LeaveTypeReader>();
+        services.AddScoped<ILeaveApplicationStore, LeaveApplicationStore>();
 
         return services;
     }
