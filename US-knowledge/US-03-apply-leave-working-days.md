@@ -1,8 +1,8 @@
 # US-03: Apply for leave with an accurate working-day count
 
 **Jira:** SCRUM-10 · Story · To Do · High · epic SCRUM-7 (Leave Management App: MVP) · SCRUM Sprint 4 (active)
-**Code:** No pull request, no commit. Uncommitted work on branch `SCRUM-10-US-03-Apply-for-leave-with-an-accurate-working-day-count`, base `9390de5` (same as `main`), head = working tree · 12 modified files (+68, -12) and 22 new code and test files (about 2,100 lines, not counted as added lines) plus the new spec folder, all for the working tree
-**Written:** 2026-11-13. I read the code and the design documents. I did not build or run anything, and this note was not checked by running the build or the tests. Where I write "the owner's session ran", that is a result the owner's session gave me, not something I ran.
+**Code:** No pull request. Commit `790f8f6` on branch `SCRUM-10-US-03-Apply-for-leave-with-an-accurate-working-day-count` (pushed), base `9390de5` (= main) · 48 files (+3588, -13), for commit 790f8f6
+**Written:** 2026-11-13, updated after the commit. I read the code and the design documents. I did not build or run anything, and this note was not checked by running the build or the tests. Where I write "the owner's session ran", that is a result the owner's session gave me, not something I ran.
 
 ## What the story is
 
@@ -140,13 +140,11 @@ There is no .NET test project (Phase 5). The owner's session ran 17 web test fil
 
 `us03-apply-leave-working-days/tasks.md`: T001 to T029, all ticked (29 of 29). I counted the ticked lines I could see; the long lines were cut in my search, so I did not read each one.
 - Done: T001 to T029 (baseline, domain, readers, store, endpoints, screen, preview, full checks, reviews, INDEX and `/learn`)
-- Open: none in the file. Outside the file: no commit, no pull request, `/status` not run, and no browser check of the screens.
-
-`INDEX.md` says "T001 to T028 done". The tasks file ticks T029 too. The INDEX line is a little behind.
+- Open: none in the file. Outside the file: no pull request yet, `/status` not run, and no browser check of the screens.
 
 ## Findings and gaps
 
-- **Jira says To Do, the code is built.** All 29 tasks are ticked, but nothing is committed and there is no pull request. The Jira status and the real state do not match.
+- **Jira says To Do, the code is built, committed and pushed.** All 29 tasks are ticked and commit `790f8f6` is on the remote branch, but there is no pull request yet, so no code is waiting for review. The Jira status and the real state do not match.
 - **Contract differs from 3d** in path and version, preview verb and failure style, error code spelling, 400 versus 428, 400 body, and the 201 response. The code follows `contracts/leave-requests-api.md` in the repo. 3d is still a draft, so it may be the one to update. Your decision.
 - **No "balance after" on the screen.** The wireframe shows it. The preview returns no balance numbers.
 - **Rule 6 (probation) and rule 9 (medical certificate) are not enforced.** A new joiner can apply for Annual in the first 3 months. The spec lists this as out of scope (research R9).
