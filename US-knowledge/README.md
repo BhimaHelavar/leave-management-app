@@ -39,3 +39,4 @@ node US-knowledge/build-html.js
 | Id | Story | Jira status | Code | Note | Written |
 | --- | --- | --- | --- | --- | --- |
 | US-01 | Sign in and see only what my role allows (SCRUM-8) | In Progress | PR #2 (open) | [US-01-sign-in-by-role.md](US-01-sign-in-by-role.md) | 2026-11-10 |
+| US-02 | See my leave balance per leave type (SCRUM-9) | Done | No PR; uncommitted on branch `SCRUM-9-US-02-See-my-leave-balance-per-leave-type` (base d91c678) | [US-02-see-leave-balance.md](US-02-see-leave-balance.md) | 2026-11-10 |

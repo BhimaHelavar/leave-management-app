@@ -2,7 +2,9 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { NEVER } from 'rxjs';
 import { routes } from './app.routes';
+import { BalanceService } from './features/dashboard/balance.service';
 import { authGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
 import { Role } from './auth/models';
@@ -17,6 +19,8 @@ async function navigate(
   TestBed.configureTestingModule({
     providers: [
       provideRouter(routes),
+      // The dashboard route loads real data; these tests only check routing, so the balances load is stubbed.
+      { provide: BalanceService, useValue: { getMyBalances: () => NEVER } },
       { provide: AuthService, useValue: { roles: signal(roles), isSignedIn: signal(signedIn) } },
     ],
   });
