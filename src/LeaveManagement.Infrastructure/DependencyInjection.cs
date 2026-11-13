@@ -1,4 +1,5 @@
 using LeaveManagement.Application.Auditing;
+using LeaveManagement.Application.Balances;
 using LeaveManagement.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -25,6 +26,8 @@ public static class DependencyInjection
         // "Now" comes from TimeProvider (golden rule); the host also registers it, TryAdd keeps one.
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<IAuditWriter, AuditWriter>();
+        services.AddScoped<IBalanceReader, BalanceReader>();
+        services.AddScoped<IPendingLeaveReader, PendingLeaveReader>();
 
         return services;
     }

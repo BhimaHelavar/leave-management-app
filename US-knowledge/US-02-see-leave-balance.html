@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>US-02: See my leave balance per leave type</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --bg: #f6f8fa; --surface: #ffffff; --fg: #14202b; --muted: #55677a; --line: #dbe2ea;
+  --accent: #0a6c74; --accent-soft: #e0f1f2;
+  --ok: #17703f; --ok-bg: #e2f4ea; --warn: #85560a; --warn-bg: #fdf0d3; --bad: #a3261d; --bad-bg: #fce6e3;
+  --code-bg: #0f1b26; --code-fg: #d6e2ee; --inline-bg: #e9eef3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+    --accent: #55c7c9; --accent-soft: #11302f;
+    --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+    --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+  --accent: #55c7c9; --accent-soft: #11302f;
+  --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+  --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.page { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+header { display: flex; flex-direction: column; gap: 14px; }
+h1 { font-family: var(--font-head); font-size: clamp(1.6rem, 4.5vw, 2.3rem); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.facts dt { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding-top: 3px; }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 0.82rem; color: var(--accent); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; outline: none; }
+main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+h2 { font-family: var(--font-head); font-size: 1.35rem; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); text-wrap: balance; scroll-margin-top: 12px; }
+h3 { font-family: var(--font-head); font-size: 1.02rem; margin: 10px 0 0; color: var(--accent); }
+p { margin: 0; max-width: 72ch; }
+ul, ol { margin: 0; padding-left: 1.4rem; max-width: 76ch; display: flex; flex-direction: column; gap: 6px; }
+a { color: var(--accent); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--inline-bg); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+.code { overflow-x: auto; background: var(--code-bg); border-radius: 8px; border: 1px solid var(--line); }
+.code pre { margin: 0; padding: 14px 16px; }
+.code code { background: none; padding: 0; color: var(--code-fg); font-size: 0.8rem; line-height: 1.5; white-space: pre; overflow-wrap: normal; }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+td:first-child { min-width: 9rem; }
+td.st { font-weight: 600; }
+td.ok { color: var(--ok); background: var(--ok-bg); }
+td.warn { color: var(--warn); background: var(--warn-bg); }
+td.bad { color: var(--bad); background: var(--bad-bg); }
+footer { color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 560px) { .facts { grid-template-columns: 1fr; gap: 2px; } .facts dt { padding-top: 8px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+<h1>US-02: See my leave balance per leave type</h1>
+<dl class="facts"><dt>Jira</dt><dd>SCRUM-9 · Story · Done · High · epic SCRUM-7 (Leave Management App: MVP) · SCRUM Sprint 4 (active)</dd><dt>Code</dt><dd>no pull request · branch <code>SCRUM-9-US-02-See-my-leave-balance-per-leave-type</code> · base <code>d91c678</code> (same as <code>main</code>) plus the uncommitted working tree · 28 files (6 modified: +15, -3; 22 new, not counted in lines)</dd><dt>Written</dt><dd>2026-11-10. I read the code and the design documents. I did not build or run anything, and this skill did not run the build or the tests. The branch has zero commits of its own, so "the code" below is the owner's working tree on top of <code>d91c678</code>.</dd></dl>
+<nav class="toc" aria-label="Sections"><a href="#what-the-story-is">What the story is</a><a href="#what-the-code-delivers">What the code delivers</a><a href="#acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</a><a href="#code-changes">Code changes</a><a href="#design-versus-code">Design versus code</a><a href="#state-of-the-tasks">State of the tasks</a><a href="#findings-and-gaps">Findings and gaps</a><a href="#why-it-is-built-this-way">Why it is built this way</a><a href="#interview-practice">Interview practice</a></nav>
+</header>
+<main>
+<h2 id="what-the-story-is">What the story is</h2>
+<p>An employee opens the dashboard and sees one card for each leave type. Each card shows how many days were accrued (earned), used, pending (waiting for a decision) and available (still free to take).</p>
+<p>If you have 10 Annual days and 2 are used, the card says 8 available and 0 pending. If you also have a 3-day request waiting, it says 5 available and 3 pending.</p>
+<p><strong>Why it matters:</strong> it answers the employee's first question, "Is my balance right?" (requirement BR-02, Must).</p>
+<h2 id="what-the-code-delivers">What the code delivers</h2>
+<div class="code"><pre><code>Dashboard (/dashboard) --GET /api/me/balances + Bearer--&gt; BalanceEndpoints
+   |                                                         | sub claim -&gt; employeeId
+   |                                                    GetMyBalances (use case)
+   |                          +------------------------------+-----------------------+
+   |                  IBalanceReader                                       IPendingLeaveReader
+   |             BalanceReader (balances.*)                              PendingLeaveReader (leave.*)
+   |        LeaveType + LeaveBalance + LeaveBalanceEntry                    LeaveRequest (Pending)
+   |                          +------------------+----------------------------+
+   |                                  BalanceSummary.Derive (Domain)
+   +&lt;-- 200 { leaveYear, balances[ {accrued, used, pending, available, ...} ] }
+   cards, or an error box with "Try again" (never zeros)</code></pre></div>
+<p><strong>The key idea: ledger and balance row.</strong></p>
+<ul><li><code>balances.LeaveBalance</code> holds one row per person, type and year, with a stored <code>Available</code>. This is the fast number.</li><li><code>balances.LeaveBalanceEntry</code> is the ledger: an append-only list of signed movements (Grant, Deduction, Restore, CarryForward, Adjustment). Nothing in it is edited.</li><li>Both are written in one transaction, so <code>Available</code> always equals the sum of the ledger (design 3c, option C).</li><li>Days are taken out ("held") when a request is submitted, not when it is approved. So <code>Available</code> already excludes pending days.</li></ul>
+<p><strong>How the four figures are derived</strong> (<code>BalanceSummary.Derive</code>, nothing extra is stored):</p>
+<ul><li><code>held</code> = minus the sum of Deduction and Restore entries. It covers pending plus approved days.</li><li><code>accrued</code> = <code>available + held</code></li><li><code>used</code> = <code>held - pending</code></li><li><code>pending</code> = the sum of <code>DaysCount</code> of Pending requests (from the <code>leave</code> module)</li><li><code>available</code> = the stored value, so <code>accrued - used - pending = available</code> always holds.</li></ul>
+<ol><li>The Dashboard calls <code>GET /api/me/balances</code>. The caller is the token's <code>sub</code> claim. There is no id in the URL or body, so there is nothing to probe.</li><li><code>GetMyBalances</code> takes "today" from <code>TimeProvider</code>, sets the leave year to today's year, and calls two ports (interfaces). One reads the <code>balances</code> tables, the other reads <code>leave.LeaveRequest</code>. The use case joins them, so no module reads the other's tables.</li><li>A type with no balance row and <code>AccrualMode.None</code> (Unpaid) returns <code>hasBalance: false</code> with all numbers null. A type that accrues but has no row yet shows zeros.</li><li>Carry-forward: <code>CarryForwardRemaining = min(available, max(0, carryForwardGranted - held))</code>. It assumes carry-forward days are used first. Only live entries count (<code>ExpiresOn</code> is today or later).</li><li>The Angular <code>Dashboard</code> shows a loading line, an error box with a retry button, or the cards. It shows numbers exactly as received.</li></ol>
+<p><strong>Example:</strong> Asha Nair (demo data) has Annual 10 accrued. She has an approved 2-day request and a pending 3-day request. The ledger has Deduction -2 and Deduction -3, so <code>held</code> = 5. <code>LeaveBalance.Available</code> = 5. Pending from <code>leave.LeaveRequest</code> = 3. The card shows accrued 10 (5+5), used 2 (5-3), pending 3, available 5. Ravi Kumar has only the approved 2 days: held 2, pending 0, so accrued 10, used 2, available 8.</p>
+<h2 id="acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</h2>
+<div class="table"><table><thead><tr><th>Criterion (from Jira)</th><th>Delivered by</th><th>State</th></tr></thead><tbody><tr><td>AC1. 10 Annual accrued, 2 used: dashboard shows 8 available and 0 pending</td><td><code>BalanceSummary.Derive</code>, <code>GetMyBalances</code>, <code>Dashboard</code>; demo person Ravi Kumar in <code>DemoBalanceScenarios.cs</code>. Web test: <code>dashboard.spec.ts</code> (figures from a stubbed service)</td><td class="st warn">Partly. Code and demo data exist. Nobody has run the API and checked it (T014 open). Not covered by a back-end test</td></tr><tr><td>AC2. A pending request of 3 days: available shows 5</td><td>Same, with Asha Nair's demo data (pending 3, available 5). <code>dashboard.spec.ts</code> checks available 5 and pending 3 on the screen</td><td class="st warn">Partly. Same reason</td></tr></tbody></table></div>
+<h2 id="code-changes">Code changes</h2>
+<p><strong>Back end (<code>src/</code>)</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it does</th></tr></thead><tbody><tr><td><code>Api/Balances/BalanceEndpoints.cs</code></td><td>New. <code>GET /api/me/balances</code>; id from <code>sub</code>; 401 ProblemDetails if <code>sub</code> is not a number; no role policy</td></tr><tr><td><code>Api/Program.cs</code></td><td>Modified. Adds <code>app.MapBalanceEndpoints()</code></td></tr><tr><td><code>Application/Balances/BalanceDtos.cs</code></td><td>New. <code>MyBalancesResponse</code> and <code>LeaveTypeBalance</code> (nullable numbers)</td></tr><tr><td><code>Application/Balances/GetMyBalances.cs</code></td><td>New. The use case: year, two reads, derive figures, Unpaid and carry-forward handling</td></tr><tr><td><code>Application/Balances/IBalanceReader.cs</code>, <code>IPendingLeaveReader.cs</code></td><td>New. The two ports, one per module</td></tr><tr><td><code>Application/DependencyInjection.cs</code>, <code>Infrastructure/DependencyInjection.cs</code></td><td>Modified. Register the use case and the two readers (scoped)</td></tr><tr><td><code>Domain/BalanceSummary.cs</code></td><td>New. Pure maths: <code>Derive</code> and <code>CarryForwardRemaining</code>. Uses <code>decimal</code></td></tr><tr><td><code>Infrastructure/Persistence/BalanceReader.cs</code></td><td>New. Three <code>AsNoTracking</code> queries (types, balances, entries), merged in memory</td></tr><tr><td><code>Infrastructure/Persistence/PendingLeaveReader.cs</code></td><td>New. Sums <code>DaysCount</code> of Pending requests per leave type for the year</td></tr><tr><td><code>Infrastructure/Persistence/DemoBalanceScenarios.cs</code></td><td>New. Demo top-up for Ravi, Asha and Meera Rao (carry-forward)</td></tr><tr><td><code>Infrastructure/Persistence/DatabaseInitializer.cs</code></td><td>Modified. Calls the demo top-up after <code>DevSeeder</code></td></tr></tbody></table></div>
+<p><strong>Front end (<code>web/src/app/</code>)</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it does</th></tr></thead><tbody><tr><td><code>features/dashboard/balance.service.ts</code></td><td>Typed <code>getMyBalances()</code> using <code>API_URL</code></td></tr><tr><td><code>features/dashboard/dashboard.ts</code>, <code>.html</code>, <code>.scss</code></td><td>Signals <code>loading</code>, <code>error</code>, <code>balances</code>; cards; error with retry. <code>.scss</code> not read in detail</td></tr><tr><td><code>app.routes.ts</code></td><td>Modified. The <code>dashboard</code> path loads <code>Dashboard</code>; the others stay on the placeholder</td></tr></tbody></table></div>
+<p><strong>Database</strong></p>
+<p>No migration and no new table. The code reads existing tables. Only demo rows are added at start-up in Development.</p>
+<p><strong>Tests</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it checks</th></tr></thead><tbody><tr><td><code>features/dashboard/balance.service.spec.ts</code></td><td>Success and error (2 tests)</td></tr><tr><td><code>features/dashboard/dashboard.spec.ts</code></td><td>Figures, carry-forward line, no carry-forward line, no-balance card, error with no figures (5 tests)</td></tr><tr><td><code>app.routes.spec.ts</code></td><td>Modified. Stubs <code>BalanceService</code> so the routing tests do not load data</td></tr></tbody></table></div>
+<p>There is no .NET test project (Phase 5). Back-end checks are manual (<code>quickstart.md</code>).</p>
+<p><strong>Docs and tooling</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it is</th></tr></thead><tbody><tr><td><code>ai/specs/us02-see-leave-balance/</code> (spec, plan, research, data-model, quickstart, tasks, <code>contracts/balances-api.md</code>, <code>checklists/requirements.md</code>)</td><td>Spec set for SCRUM-9. I read <code>tasks.md</code> and the contract in full; the others only in part</td></tr></tbody></table></div>
+<h2 id="design-versus-code">Design versus code</h2>
+<div class="table"><table><thead><tr><th>Point</th><th>Design says</th><th>Code does</th><th>Match?</th></tr></thead><tbody><tr><td>Path</td><td>3d (1277972): <code>GET /api/v1/me/balances?year=</code></td><td><code>GET /api/me/balances</code>, no <code>year</code> (current year only). The existing <code>/api/me</code> also has no <code>/v1</code></td><td class="st warn">Differs (follows the project convention)</td></tr><tr><td>Response shape</td><td>3d: <code>{year, items[{leaveType{id,code}, granted, used, held, available}]}</code></td><td><code>{leaveYear, balances[{leaveTypeId, code, name, hasBalance, accrued, used, pending, available, carryForwardDays, carryForwardExpiresOn}]}</code></td><td class="st warn">Differs</td></tr><tr><td>Meaning of <code>used</code></td><td>3d A2: used and held come from the ledger</td><td><code>used = held - pending</code>; <code>pending</code> comes from <code>leave.LeaveRequest</code></td><td class="st warn">Differs (matches 3c: "3 pending is the sum of pending requests")</td></tr><tr><td>Roles</td><td>3d: all roles</td><td class="st bad">No role policy; the fallback policy needs sign-in</td><td class="st ok">Yes</td></tr><tr><td>Caller from token</td><td>3d conventions</td><td><code>sub</code> claim only</td><td class="st ok">Yes</td></tr><tr><td>Errors</td><td>3d: Problem Details with <code>code</code> and <code>traceId</code></td><td><code>Results.Problem</code> (401). I did not check for <code>code</code></td><td class="st warn">Partly</td></tr><tr><td>Ledger history</td><td>3d: <code>GET /me/balances/{id}/entries</code></td><td class="st bad">Not built</td><td class="st bad">Not built</td></tr><tr><td>Dashboard parts</td><td>3a (65835): cards, recent requests list, Apply button; loading, empty and error states</td><td>Cards, loading and error only. No recent requests, no Apply button, no skeleton, no empty state</td><td class="st warn">Partly (rest belongs to 4d)</td></tr><tr><td>Unpaid</td><td>3c: no balance row</td><td><code>hasBalance: false</code>, text "No balance, unpaid"</td><td class="st ok">Yes</td></tr><tr><td>Balance never below zero</td><td>3c: <code>CHECK Available &gt;= 0</code></td><td>Read only; the demo uses one atomic <code>ExecuteUpdate</code></td><td class="st ok">Yes</td></tr><tr><td>Module rule</td><td>Structure: no reads across modules</td><td>Two ports, one per schema; joined in the use case</td><td class="st ok">Yes</td></tr><tr><td>Time</td><td>Golden rule: <code>TimeProvider</code>, <code>DateOnly</code></td><td><code>GetMyBalances</code> and the demo use <code>TimeProvider</code>; days are <code>DateOnly</code></td><td class="st ok">Yes</td></tr></tbody></table></div>
+<p><strong>Design documents used:</strong></p>
+<ul><li>Jira SCRUM-9 (facts from the prompt)</li><li>Confluence LMA 98443 Phase 1 Requirements, 65835 Phase 3a UI/UX, 1048577 Phase 3c Database, 1277972 Phase 3d API (excerpts from the prompt; 3d is "drafted, awaiting answers")</li><li><code>ai/steering/*</code>; <code>ai/specs/us02-see-leave-balance/tasks.md</code> and <code>contracts/balances-api.md</code></li></ul>
+<p><strong>Looked for and not found:</strong> class-design, Angular-design and security-design pages in the LMA space. Not opened: Leave-Policy Rules (229377), NFR (262145), 3b HLD (1277954), 3c Part 2 (1179649), Data-Protection Notes (98460).</p>
+<h2 id="state-of-the-tasks">State of the tasks</h2>
+<p><code>us02-see-leave-balance/tasks.md</code> (23 tasks): 15 ticked, 8 open.</p>
+<ul><li>Done: T002 to T013, T015 to T018</li><li>Open: T001 (baseline check), T014 (browser and API checks 1, 2, 3, 6 to 9), T019 (checks 4 and 5), T020 (full build and tests), T021 (full quickstart), T022 (security and code review), T023 (update INDEX, <code>/learn</code>)</li></ul>
+<p><code>ai/specs/INDEX.md</code> has no row for US-02.</p>
+<h2 id="findings-and-gaps">Findings and gaps</h2>
+<ul><li><strong>Jira says Done, the evidence does not.</strong> There is no pull request and no commit on the branch. All work is uncommitted. T014, T019 and T020 to T023 are open. Review, <code>/learn</code> and <code>/status</code> (CLAUDE.md) are not done.</li><li><strong>Contract differs from 3d</strong> (path, field names, <code>used</code> meaning, no <code>year</code> parameter). The repo contract <code>balances-api.md</code> is what the code follows. 3d is still a draft, so it may be the one to update. Your decision.</li><li><strong>Tasks versus contract and code:</strong> T009 says "404 when <code>sub</code> is missing or not an active employee". The contract and the code return 401 for a bad <code>sub</code>, and the code does not check that the employee is active. The contract accepts this (same as <code>/api/me</code>, up to 60 minutes). <code>tasks.md</code> is out of date.</li><li><strong>Dashboard is balances only.</strong> No recent requests, Apply button, skeleton or empty state (3a). Likely 4d.</li><li><strong>Dates on the card</strong> show the raw <code>yyyy-MM-dd</code> string, not a formatted date (<code>dashboard.html</code>). T018 asked for a formatted date.</li><li><strong>Leave year uses UTC today.</strong> The office is Asia/Kolkata, so around New Year the year could differ for a few hours. I did not find a stated rule.</li><li><strong>Demo data</strong> (<code>DemoBalanceScenarios</code>): called only from the Development branch in <code>Program.cs</code> (<code>seedDemoData: true</code>), so Demo never seeds (rule 6). It is idempotent through a note marker per person and year. It needs the opening balance row from <code>DevSeeder</code> and skips if missing. It writes entry types Adjustment and Deduction directly, a shortcut until 4d and 4e exist. The ledger sum was designed to equal <code>Available</code>, but I did not run the reconciliation.</li><li><strong>Security checks I read in the code:</strong> id from the token only, <code>AsNoTracking</code> on every read, parameterized LINQ, no personal data logged. The screen shows an error, not zeros, on failure. Role policy tests do not exist (no .NET tests).</li><li><strong>Not verified:</strong> build, tests, API call, browser, performance (under 2 s), the <code>year</code> and ledger-history parts of 3d.</li></ul>
+<h2 id="why-it-is-built-this-way">Why it is built this way</h2>
+<div class="table"><table><thead><tr><th>Decision</th><th>Chosen</th><th>Rejected, and why</th></tr></thead><tbody><tr><td>Stored figures</td><td>Store only <code>Available</code>; derive accrued and used (research R1)</td><td>Store all four: they could drift from the ledger</td></tr><tr><td>Where days are held</td><td>At submit (3c)</td><td>At approval: two pending requests could overspend</td></tr><tr><td>Cross-module read</td><td>Two ports joined in the use case</td><td>One query across <code>leave</code> and <code>balances</code>: breaks the module rule</td></tr><tr><td>Queries</td><td>Three small queries merged in memory</td><td>One large grouped join: harder to read, a handful of rows only</td></tr><tr><td>Carry-forward</td><td>Used first, shown while remaining (research R5, owner confirmed)</td><td>Not shown: the employee would not see what lapses on 31 March</td></tr><tr><td>Demo data</td><td>Idempotent top-up, no reset (R6)</td><td>Reset the database: destructive</td></tr><tr><td>Who is asked about</td><td><code>sub</code> claim only</td><td>An id in the URL: invites IDOR (rule 4)</td></tr></tbody></table></div>
+<h2 id="interview-practice">Interview practice</h2>
+<ol><li><strong>Q:</strong> Why a ledger and a balance row? <strong>A:</strong> The ledger is the history and is never edited, so every change can be explained. The row gives a fast read and a database check <code>Available &gt;= 0</code>. Both are written in one transaction, and a reconciliation query checks they agree.</li><li><strong>Q:</strong> Why is available already net of pending days? <strong>A:</strong> Days are deducted at submit and restored on reject or cancel. So pending days are already out of <code>Available</code>. The code adds them back to <code>accrued</code> and splits them out as <code>pending</code>.</li><li><strong>Q:</strong> How is <code>used</code> worked out? <strong>A:</strong> <code>held</code> is minus the sum of Deduction and Restore entries (pending plus approved). Used is <code>held - pending</code>.</li><li><strong>Q:</strong> How do you avoid reading another module's tables? <strong>A:</strong> Each module has its own reader behind an interface in Application. The use case combines the answers.</li><li><strong>Q:</strong> Why no employee id in the route? <strong>A:</strong> The caller is the <code>sub</code> claim. There is no id to guess, so no IDOR (security rule 4).</li><li><strong>Q:</strong> Why does the screen show an error and not zeros? <strong>A:</strong> Zero means "no leave left". An error means "could not load". Mixing them would mislead the employee.</li></ol>
+<p><strong>Teach-back (answer in your own words):</strong></p>
+<ol><li>Work through AC2 with the ledger rows, and show how the card gets accrued 10, used 2, pending 3, available 5.</li><li>Why does <code>GetMyBalances</code> call two ports instead of one query across both schemas, and what would break if it did?</li><li>The API path differs from the 3d design and Jira says Done with no pull request. What would you do before calling this story finished?</li></ol>
+</main>
+<footer>Generated from US-02-see-leave-balance.md by US-knowledge/build-html.js. Edit the .md file, then run the script again.</footer>
+</div>
+</body>
+</html>

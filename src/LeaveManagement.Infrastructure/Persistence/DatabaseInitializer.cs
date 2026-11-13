@@ -31,6 +31,7 @@ public static class DatabaseInitializer
         if (seedDemoData)
         {
             await DevSeeder.SeedAsync(db, ct);
+            await DemoBalanceScenarios.SeedAsync(db, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);
         }
     }
 }

@@ -1,0 +1,51 @@
+<section class="dashboard" aria-labelledby="dashboard-title">
+  <h1 id="dashboard-title">My leave balance</h1>
+  @if (leaveYear() !== null) {
+    <p class="year">Leave year {{ leaveYear() }}</p>
+  }
+
+  @if (loading()) {
+    <p role="status">Loading your balances…</p>
+  } @else if (error()) {
+    <div class="error" role="alert">
+      <p>Your balances could not be loaded.</p>
+      <button type="button" (click)="load()">Try again</button>
+    </div>
+  } @else {
+    <ul class="cards">
+      @for (balance of balances(); track balance.leaveTypeId) {
+        <li class="card">
+          <h2>{{ balance.name }}</h2>
+          @if (balance.hasBalance) {
+            <p class="available">
+              <span class="number">{{ balance.available }}</span>
+              <span class="label">available</span>
+            </p>
+            <dl>
+              <div>
+                <dt>Accrued</dt>
+                <dd>{{ balance.accrued }}</dd>
+              </div>
+              <div>
+                <dt>Used</dt>
+                <dd>{{ balance.used }}</dd>
+              </div>
+              <div>
+                <dt>Pending</dt>
+                <dd>{{ balance.pending }}</dd>
+              </div>
+            </dl>
+            @if (balance.carryForwardDays !== null && balance.carryForwardExpiresOn !== null) {
+              <p class="carry-forward">
+                {{ balance.carryForwardDays }} of these are carry-forward days and expire on
+                {{ balance.carryForwardExpiresOn }}.
+              </p>
+            }
+          } @else {
+            <p class="no-balance">No balance, unpaid</p>
+          }
+        </li>
+      }
+    </ul>
+  }
+</section>

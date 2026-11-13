@@ -1,0 +1,70 @@
+.dashboard {
+  padding: 1rem;
+}
+
+.year {
+  color: #555;
+  margin-top: 0;
+}
+
+.cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.card {
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  padding: 1rem;
+
+  h2 {
+    font-size: 1rem;
+    margin: 0 0 0.5rem;
+  }
+}
+
+.available {
+  margin: 0 0 0.5rem;
+
+  .number {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-right: 0.25rem;
+  }
+}
+
+dl {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+
+  dt {
+    color: #555;
+    font-size: 0.8rem;
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+.carry-forward {
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}
+
+.no-balance {
+  color: #555;
+  margin: 0;
+}
+
+.error {
+  border: 1px solid #b00020;
+  border-radius: 0.5rem;
+  color: #b00020;
+  padding: 1rem;
+}
