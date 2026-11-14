@@ -81,7 +81,7 @@ Every 4xx leaves balances and requests unchanged. When several rules fail, the r
 | `type.unknown` | This leave type is not available. |
 | `notice.short` | This leave type needs at least {n} working days' notice. |
 | `max.consecutive` | This leave type allows at most {n} days in a row. Longer leave needs HR. |
-| `leave.overlap` | You already have a pending or approved leave request on one or more of these days. |
+| `leave.overlap` | You already have a pending or approved leave request on {dates}. (The dates are named since US-05; see `ai/specs/us05-block-invalid-requests/contracts/overlap-refusal.md` for the date rules.) |
 | `balance.insufficient` | You do not have enough balance for these days. |
 | `idempotency.mismatch` | This request key was already used for a different request. |
 

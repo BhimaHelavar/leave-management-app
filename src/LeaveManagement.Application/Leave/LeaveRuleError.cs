@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace LeaveManagement.Application.Leave;
 
 /// <summary>Why a request was refused. The code is stable for the screen; the message is plain words.</summary>
@@ -46,8 +48,26 @@ public static class LeaveRuleErrors
     public static LeaveRuleError MaxConsecutive(int days) =>
         new(LeaveRuleCodes.MaxConsecutive, $"This leave type allows at most {days} days in a row. Longer leave needs HR.");
 
-    public static LeaveRuleError Overlap() =>
-        new(LeaveRuleCodes.Overlap, "You already have a pending or approved leave request on one or more of these days.");
+    /// <summary>The most clashing dates a message names. More are summed up as "and N more".</summary>
+    private const int MaxNamedDates = 10;
+
+    /// <summary>
+    /// Names the dates that clash (contract overlap-refusal.md): distinct, in date order, as yyyy-MM-dd, at most
+    /// <see cref="MaxNamedDates"/>, then "and N more". An empty list keeps the general wording. Pure: no clock, no database.
+    /// </summary>
+    public static LeaveRuleError Overlap(IEnumerable<DateOnly> clashingDates)
+    {
+        var dates = clashingDates.Distinct().Order().ToList();
+        if (dates.Count == 0)
+        {
+            return new(LeaveRuleCodes.Overlap, "You already have a pending or approved leave request on one or more of these days.");
+        }
+
+        var named = string.Join(
+            ", ", dates.Take(MaxNamedDates).Select(d => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)));
+        var rest = dates.Count > MaxNamedDates ? $" and {dates.Count - MaxNamedDates} more" : string.Empty;
+        return new(LeaveRuleCodes.Overlap, $"You already have a pending or approved leave request on {named}{rest}.");
+    }
 
     public static LeaveRuleError BalanceInsufficient() =>
         new(LeaveRuleCodes.BalanceInsufficient, "You do not have enough balance for these days.");
