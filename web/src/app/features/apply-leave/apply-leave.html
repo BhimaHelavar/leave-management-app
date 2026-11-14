@@ -32,16 +32,26 @@
         <input id="end-date" type="date" [value]="endDate()" (input)="onEndDate($event)" />
       </div>
 
-      @if (canChooseHalfDay()) {
-        <div class="field">
-          <label for="half-day">Length of the day</label>
-          <select id="half-day" (change)="onHalfDay($event)">
-            <option value="None" [selected]="halfDay() === 'None'">Full day</option>
-            <option value="FirstHalf" [selected]="halfDay() === 'FirstHalf'">First half</option>
-            <option value="SecondHalf" [selected]="halfDay() === 'SecondHalf'">Second half</option>
-          </select>
+      <div class="field">
+        <label for="half-day">Length of the day</label>
+        <select
+          id="half-day"
+          [disabled]="!canChooseHalfDay()"
+          [attr.aria-describedby]="canChooseHalfDay() ? null : 'half-day-hint'"
+          (change)="onHalfDay($event)"
+        >
+          <option value="None" [selected]="halfDay() === 'None'">Full day</option>
+          <option value="FirstHalf" [selected]="halfDay() === 'FirstHalf'">First half</option>
+          <option value="SecondHalf" [selected]="halfDay() === 'SecondHalf'">Second half</option>
+        </select>
+        <div aria-live="polite">
+          @if (!canChooseHalfDay()) {
+            <p id="half-day-hint" class="hint">
+              A half day applies to a single day only. Choose the same start and end date to use it.
+            </p>
+          }
         </div>
-      }
+      </div>
 
       <div class="field">
         <label for="reason">Reason (optional)</label>
