@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>US-05: Block requests that break my balance or overlap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --bg: #f6f8fa; --surface: #ffffff; --fg: #14202b; --muted: #55677a; --line: #dbe2ea;
+  --accent: #0a6c74; --accent-soft: #e0f1f2;
+  --ok: #17703f; --ok-bg: #e2f4ea; --warn: #85560a; --warn-bg: #fdf0d3; --bad: #a3261d; --bad-bg: #fce6e3;
+  --code-bg: #0f1b26; --code-fg: #d6e2ee; --inline-bg: #e9eef3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+    --accent: #55c7c9; --accent-soft: #11302f;
+    --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+    --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+  --accent: #55c7c9; --accent-soft: #11302f;
+  --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+  --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.page { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+header { display: flex; flex-direction: column; gap: 14px; }
+h1 { font-family: var(--font-head); font-size: clamp(1.6rem, 4.5vw, 2.3rem); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.facts dt { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding-top: 3px; }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 0.82rem; color: var(--accent); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; outline: none; }
+main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+h2 { font-family: var(--font-head); font-size: 1.35rem; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); text-wrap: balance; scroll-margin-top: 12px; }
+h3 { font-family: var(--font-head); font-size: 1.02rem; margin: 10px 0 0; color: var(--accent); }
+p { margin: 0; max-width: 72ch; }
+ul, ol { margin: 0; padding-left: 1.4rem; max-width: 76ch; display: flex; flex-direction: column; gap: 6px; }
+a { color: var(--accent); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--inline-bg); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+.code { overflow-x: auto; background: var(--code-bg); border-radius: 8px; border: 1px solid var(--line); }
+.code pre { margin: 0; padding: 14px 16px; }
+.code code { background: none; padding: 0; color: var(--code-fg); font-size: 0.8rem; line-height: 1.5; white-space: pre; overflow-wrap: normal; }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+td:first-child { min-width: 9rem; }
+td.st { font-weight: 600; }
+td.ok { color: var(--ok); background: var(--ok-bg); }
+td.warn { color: var(--warn); background: var(--warn-bg); }
+td.bad { color: var(--bad); background: var(--bad-bg); }
+footer { color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 560px) { .facts { grid-template-columns: 1fr; gap: 2px; } .facts dt { padding-top: 8px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+<h1>US-05: Block requests that break my balance or overlap</h1>
+<dl class="facts"><dt>Jira</dt><dd>SCRUM-12 · Story · Done (resolved 2026-11-14) · High · epic SCRUM-7 (Leave Management App: MVP) · SCRUM Sprint 4 (closed 2026-11-14)</dd><dt>Code</dt><dd>PR #7 (merged into main, merge commit <code>827e3b4</code>) · branch <code>SCRUM-12-US-05-Block-requests-that-break-my-balance-or-overlap</code> · head <code>7e2529c8500db177f84566416b85251a68491f8d</code> · 13 files (+673, -13)</dd><dt>Written</dt><dd>2026-11-14. I read the code and the design documents. I did not build or run anything. Where I write "the owner's session ran", that is a result given to me, not something I ran.</dd></dl>
+<nav class="toc" aria-label="Sections"><a href="#what-the-story-is">What the story is</a><a href="#what-the-code-delivers">What the code delivers</a><a href="#acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</a><a href="#code-changes">Code changes</a><a href="#design-versus-code">Design versus code</a><a href="#state-of-the-tasks">State of the tasks</a><a href="#findings-and-gaps">Findings and gaps</a><a href="#why-it-is-built-this-way">Why it is built this way</a><a href="#interview-practice">Interview practice</a></nav>
+</header>
+<main>
+<h2 id="what-the-story-is">What the story is</h2>
+<p>An employee must not be able to send a request that breaks the rules. If you ask for more days than you have, the request is refused and nothing is saved. If your dates clash with leave you already have, it is refused and the message names the clashing dates.</p>
+<p>Most of this already existed. The balance block and the overlap block were built in US-03 (PR #5, SCRUM-10). This story (PR #7) adds the one missing piece: the overlap message now <strong>names the dates</strong>. Before, it only said "one or more of these days".</p>
+<p><strong>Why it matters:</strong> a manager never sees a request that could not be valid, and the employee can see at once what to change.</p>
+<h2 id="what-the-code-delivers">What the code delivers</h2>
+<div class="code"><pre><code>Apply screen (S-03)  --POST /api/me/leave-requests--&gt;  LeaveApplicationStore (one DB transaction)
+  1. saved answer for this Idempotency-Key?  -&gt; return it
+  2. ClashingDatesAsync: my own leave.LeaveRequestDay rows in the range
+        clash?  -&gt; 409 leave.overlap  "...request on 2026-12-01, 2026-12-02."   (PR #7)
+  3. insert request + day rows   (unique index UX_LeaveRequestDay_Employee_Date_Slot)
+        race loser? -&gt; rollback, saved answer? else re-read dates -&gt; 409 leave.overlap
+  4. guarded update  Available &gt;= days
+        zero rows? -&gt; rollback -&gt; 422 balance.insufficient, nothing saved   (PR #5)
+  5. audit row, commit -&gt; 201</code></pre></div>
+<ol><li><strong>Balance block (PR #5).</strong> The store does one guarded update: take the days only if <code>Available &gt;= days</code>. If no row is changed, it rolls back and answers 422 <code>balance.insufficient</code>. It never reads the balance, adds in code and writes it back, so two requests cannot both spend the last days.</li><li><strong>Overlap pre-check (PR #5, changed in PR #7).</strong> Before writing, the store reads the person's own day rows in the date range. A clash is a row with the same date and the same slot (AM or PM). The new private method <code>ClashingDatesAsync</code> returns the distinct clashing dates in order.</li><li><strong>Message builder (PR #7).</strong> <code>LeaveRuleErrors.Overlap(dates)</code> is a pure function: distinct, sorted, ISO <code>yyyy-MM-dd</code>, at most 10 dates, then "and N more". An empty list keeps the old general text.</li><li><strong>Race backstop (PR #5, changed in PR #7).</strong> If two submits race, the unique index refuses the loser's insert. The store rolls back, first checks whether the winner saved an answer for the same key (then it returns that answer), and only then re-reads the dates and builds the 409.</li><li><strong>Screen (not changed).</strong> <code>apply-leave.ts</code> already shows the server <code>detail</code> text in an alert. PR #7 only adds tests for it.</li></ol>
+<p><strong>Example:</strong> Sneha Iyer (dev user, id 6, Employee) holds a pending Annual request for Tue 2026-12-01 to Wed 2026-12-02. She applies for Mon 11-30 to Wed 12-02. The API answers 409 <code>leave.overlap</code> with "You already have a pending or approved leave request on 2026-12-01, 2026-12-02." It does not name 11-30. Her balance and request list are unchanged.</p>
+<h2 id="acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</h2>
+<div class="table"><table><thead><tr><th>Criterion (from Jira)</th><th>Delivered by</th><th>State</th></tr></thead><tbody><tr><td>1. With 2 Annual available, asking for 3 days shows "insufficient balance" and saves nothing</td><td>Guarded update and rollback in <code>LeaveApplicationStore.cs</code> (PR #5); code <code>balance.insufficient</code>, 422. The owner's session ran a 9-available / 11-days case: 422, balance unchanged. The exact "2 available, 3 requested" case was not run</td><td class="st ok">Done (closest case run)</td></tr><tr><td>2. Overlap with an approved request is rejected naming the clashing dates</td><td><code>ClashingDatesAsync</code> + <code>LeaveRuleErrors.Overlap(dates)</code> (PR #7). Run with pending requests only: four overlap shapes and a two-request case named the right dates</td><td class="st warn">Partly: approved case could not be run (approve is 4e, not built)</td></tr></tbody></table></div>
+<h2 id="code-changes">Code changes</h2>
+<p><strong>Back end (<code>src/</code>)</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it does</th></tr></thead><tbody><tr><td><code>LeaveManagement.Application/Leave/LeaveRuleError.cs</code></td><td><code>Overlap(dates)</code> now builds the message from dates (pure function, cap of 10)</td></tr><tr><td><code>LeaveManagement.Infrastructure/Persistence/LeaveApplicationStore.cs</code></td><td>New <code>ClashingDatesAsync</code> (caller's own rows only); both overlap refusals use it; race path re-reads dates after rollback and checks the saved answer first</td></tr></tbody></table></div>
+<p><strong>Front end (<code>web/src/app/</code>)</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it does</th></tr></thead><tbody><tr><td><code>features/apply-leave/apply-leave.spec.ts</code></td><td>Screen code unchanged. Two new Vitest cases (see Tests)</td></tr></tbody></table></div>
+<p><strong>Tests</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it checks</th></tr></thead><tbody><tr><td><code>features/apply-leave/apply-leave.spec.ts</code></td><td>A 409 <code>leave.overlap</code> with dates in <code>detail</code> shows both dates in the alert and saves nothing. A 409 with no <code>detail</code> shows the general overlap wording</td></tr></tbody></table></div>
+<p>No .NET test exists (Phase 5). Back-end checks were manual API calls.</p>
+<p><strong>Docs and tooling</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it is</th></tr></thead><tbody><tr><td><code>ai/specs/us05-block-invalid-requests/</code> (spec, plan, research, data-model, quickstart, tasks, checklists, <code>contracts/overlap-refusal.md</code>)</td><td>The spec folder. I read spec, research and tasks in full; the others not read in detail</td></tr><tr><td><code>ai/specs/us03-apply-leave-working-days/contracts/leave-requests-api.md</code></td><td>The <code>leave.overlap</code> message row now has <code>{dates}</code></td></tr><tr><td><code>ai/specs/INDEX.md</code></td><td>Row for this story (still says "In progress")</td></tr></tbody></table></div>
+<p>No migration, no new package, no screen change.</p>
+<h2 id="design-versus-code">Design versus code</h2>
+<div class="table"><table><thead><tr><th>Point</th><th>Design says</th><th>Code does</th><th>Match?</th></tr></thead><tbody><tr><td>Error codes</td><td>3d: snake_case, <code>leave_overlap</code>, <code>insufficient_balance</code></td><td>Dotted: <code>leave.overlap</code>, <code>balance.insufficient</code></td><td class="st warn">Differs</td></tr><tr><td>Detail text</td><td>3d example: "12 Nov is already covered by request 98."</td><td>Names dates only, never a request id (research R6; security rules 4 and 12)</td><td class="st warn">Differs on purpose</td></tr><tr><td>Path</td><td>3d: <code>/api/v1/leave-requests</code></td><td><code>/api/me/leave-requests</code> (known since US-03)</td><td class="st warn">Differs</td></tr><tr><td>Status codes</td><td>3d: 409 clash with current data, 422 business rule refused</td><td>Overlap 409, balance 422</td><td class="st ok">Yes</td></tr><tr><td>Rule 5</td><td>Confluence policy page: hard block, unpaid is the escape</td><td>Guarded update blocks; Unpaid has no balance (steering rule 5)</td><td class="st ok">Yes</td></tr><tr><td>Rule 13</td><td>Block overlap with pending or approved</td><td>Any request with day rows blocks. Release of rows on reject or cancel is 4e</td><td class="st warn">Partly (not built)</td></tr><tr><td>S-03 validations</td><td>3a: enough balance, no overlap; errors announced to screen readers</td><td>Both enforced on the server; the screen shows the refusal in <code>role="alert"</code> (read from the new test, not checked in the HTML)</td><td class="st ok">Yes (not changed here)</td></tr><tr><td>Validation in both layers</td><td>ADR 28: rules in the API</td><td>Server decides; screen only shows the text</td><td class="st ok">Yes</td></tr><tr><td>Day table</td><td>3c holds <code>LeaveRequestDay</code></td><td>I could not read the 3c details (only the search hit). I read <code>LeaveConfigurations.cs</code> instead: unique index on employee, date, slot</td><td>Not compared with 3c</td></tr></tbody></table></div>
+<p><strong>Design documents used:</strong></p>
+<ul><li>Confluence LMA "Leave-Policy Rules (accepted defaults)" id 229377</li><li>Confluence LMA "Phase 1: Requirements Overview" id 98443</li><li>Confluence LMA "Phase 3a: UI/UX Design" id 65835</li><li>Confluence LMA "Phase 3d: API Design" id 1277972</li><li>Confluence LMA "Phase 3c: Database Design" id 1048577 (search hit only, not opened)</li><li>Repo: <code>ai/specs/us05-block-invalid-requests/</code>, <code>ai/specs/us03-apply-leave-working-days/</code>, <code>ai/steering/security.md</code>, <code>.specify/memory/constitution.md</code> (named by the caller; not read in detail by me)</li></ul>
+<p><strong>Looked for and not found:</strong> Phase 3e class design and Phase 3f Angular design (not in the LMA space).</p>
+<h2 id="state-of-the-tasks">State of the tasks</h2>
+<ul><li>Done (ticked): T001 baseline green, T002 message builder and store, T003 contract text, T004 Vitest cases, T005 API checks.</li><li>Open: T006 (scenario A re-check, US2), T007 (exact-balance run), T008 <code>/ci-check</code>, T009 <code>/review</code>, <code>/learn</code>, <code>/status</code>.</li></ul>
+<h2 id="findings-and-gaps">Findings and gaps</h2>
+<ul><li><strong>Jira says Done and the PR is merged, but T006 to T009 are open</strong> in <code>tasks.md</code>. The review step was not recorded as done. <code>INDEX.md</code> still says "In progress". The repo looks out of date or the finish steps were skipped. The owner decides.</li><li><strong>No learning note</strong> exists for US-05 in <code>ai/learning</code> (T009 not done).</li><li><strong>Approved clash never run.</strong> Approve is 4e. Rule 13 for approved requests, and "rejected or cancelled never clash" (FR-005), are untested. 4e must release the day rows on reject and cancel (hand-off in <code>INDEX.md</code>).</li><li><strong>Spec still says Status: Draft</strong> at the head. The follow-up fixes the caller called R1 (same-date opposite half days), R2 and R3 wording are <strong>not in the spec file</strong>. I found no text about opposite half days in the spec. From the code, the index is on employee, date and slot, and <code>Slot</code> is AM or PM, so an AM and a PM request on one date can coexist. I inferred this; I did not run it, and I did not read how a full day is stored.</li><li><strong>Screen not seen in a browser.</strong> Only the Vitest cases cover it.</li><li><strong>Test data left in LocalDB</strong> (Sneha Iyer, pending Annual): requests 35, 36, 38, 40. No cancel exists until 4e.</li><li><strong>Checks the owner's session ran (before the commit):</strong> <code>dotnet build</code> 0 warnings 0 errors; both <code>dotnet format</code> checks clean; web 114 of 114 Vitest tests; Prettier clean; web build OK. API checks: four overlap shapes named the right dates; two requests named three dates in order; clash plus too-big range named the overlap first; no-clash 11 days with 9 available gave 422; two parallel submits with different keys gave one 201 and one 409 naming dates; same key gave the same 201 twice. Not run: <code>/ci-check</code> and the review after the last change, any .NET test. Jira shows one build with unknown result.</li></ul>
+<h2 id="why-it-is-built-this-way">Why it is built this way</h2>
+<div class="table"><table><thead><tr><th>Decision</th><th>Chosen</th><th>Rejected, and why</th></tr></thead><tbody><tr><td>Reuse the US-03 blocks</td><td>Change only the message (research R1)</td><td>Rebuild the checks: a reviewed rule, risk for no gain</td></tr><tr><td>Where dates come from</td><td>Read the caller's day rows in the range (R2)</td><td>Parse the SQL error text: it must never reach the client (security rule 10) and is unreliable</td></tr><tr><td>Race path</td><td>Re-read dates after rollback; empty list falls back to old wording (R3)</td><td>Always generic: same clash named or not by timing. Retry the save: hides a real conflict</td></tr><tr><td>Message shape</td><td>Text only, ISO dates, max 10 (R4)</td><td>A <code>clashingDates</code> field: nobody uses it yet. Friendly dates: needs a server culture choice</td></tr><tr><td>Approved vs pending</td><td>One query for both, because both hold day rows (R5)</td><td>Filter by status: day rows carry no status, a join is a second source of truth</td></tr><tr><td>What is named</td><td>Own dates only, no request id, no leave type (R6)</td><td>Name the request as 3d does: leaks more data, not needed</td></tr><tr><td>Testing</td><td>Pure builder, manual API run, Vitest (R7)</td><td>Add a .NET test project now: Phase 5</td></tr></tbody></table></div>
+<h2 id="interview-practice">Interview practice</h2>
+<ol><li><strong>Q:</strong> How do you stop two requests spending the last leave days? <strong>A:</strong> One guarded SQL update, <code>Available &gt;= days</code>, inside the transaction. If zero rows change, roll back and return 422. No read-then-write, so there is no race.</li><li><strong>Q:</strong> Why a pre-check and a unique index for overlap? <strong>A:</strong> The pre-check gives a clear answer in the normal case. The unique index (employee, date, slot) is the last defence when two submits race. The database holds the rule even if the code is wrong.</li><li><strong>Q:</strong> Why 409 for overlap and 422 for balance? <strong>A:</strong> 409 means the request clashes with current data. 422 means the request is understood but a business rule refuses it (3d design).</li><li><strong>Q:</strong> Why name dates but not the other request? <strong>A:</strong> It helps the user, and dates inside their own range from their own rows leak nothing. A request id or reason adds data that is not needed (security rules 4 and 12).</li><li><strong>Q:</strong> Why is <code>Overlap(dates)</code> a pure function? <strong>A:</strong> No clock, no database, so it is easy to unit test. It sits in Application, so Domain and the dependency rule are untouched.</li><li><strong>Q:</strong> What would you do if the loser of a race finds the winner's saved answer? <strong>A:</strong> Return that answer. With the same idempotency key the second call is a retry, not an overlap.</li></ol>
+<p><strong>Teach-back (answer in your own words):</strong></p>
+<ol><li>Walk through what happens, step by step, when two browser tabs submit the same dates with different keys at the same moment.</li><li>Why does the store check for a saved idempotency answer before it builds an overlap error?</li><li>Which parts of the rule "block overlap with pending or approved" work today, and which part waits for increment 4e?</li></ol>
+</main>
+<footer>Generated from US-05-block-invalid-requests.md by US-knowledge/build-html.js. Edit the .md file, then run the script again.</footer>
+</div>
+</body>
+</html>
