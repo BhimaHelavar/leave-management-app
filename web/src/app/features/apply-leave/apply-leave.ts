@@ -263,7 +263,8 @@ export class ApplyLeave {
     }
 
     // A code this screen does not know shows the server's title. With no code at all (a 400), the detail says more.
-    const fallback = problem?.code !== undefined ? problem.title : (problem?.detail ?? problem?.title);
+    const fallback =
+      problem?.code !== undefined ? problem.title : (problem?.detail ?? problem?.title);
     return fallback ?? 'Your request could not be saved. Please try again.';
   }
 }

@@ -93,7 +93,10 @@ describe('LeaveRequestService', () => {
       .subscribe({ error: (e: HttpErrorResponse) => (problem = e.error as RefusalProblem) });
     http
       .expectOne((r) => r.url === `${API}/api/me/leave-requests/preview`)
-      .flush({ title: 'Request refused', code: 'days.none' }, { status: 422, statusText: 'Unprocessable Entity' });
+      .flush(
+        { title: 'Request refused', code: 'days.none' },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
 
     expect(problem?.code).toBe('days.none');
     http.verify();
@@ -111,7 +114,11 @@ describe('LeaveRequestService', () => {
       },
     });
     http.expectOne(`${API}/api/me/leave-requests`).flush(
-      { title: 'Request refused', detail: 'You do not have enough balance for these days.', code: 'balance.insufficient' },
+      {
+        title: 'Request refused',
+        detail: 'You do not have enough balance for these days.',
+        code: 'balance.insufficient',
+      },
       { status: 422, statusText: 'Unprocessable Entity' },
     );
 

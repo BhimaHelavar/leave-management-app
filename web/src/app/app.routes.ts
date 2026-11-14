@@ -8,8 +8,7 @@ const loadPlaceholder = () =>
 const loadNotFound = () => import('./features/not-found/not-found').then((m) => m.NotFound);
 const loadLogin = () => import('./features/login/login').then((m) => m.Login);
 const loadDashboard = () => import('./features/dashboard/dashboard').then((m) => m.Dashboard);
-const loadApplyLeave = () =>
-  import('./features/apply-leave/apply-leave').then((m) => m.ApplyLeave);
+const loadApplyLeave = () => import('./features/apply-leave/apply-leave').then((m) => m.ApplyLeave);
 
 /** The screen each navigation path opens. Paths not built yet open the placeholder. */
 function loaderFor(path: string) {

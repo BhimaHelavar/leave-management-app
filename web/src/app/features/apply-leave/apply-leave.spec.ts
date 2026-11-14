@@ -3,7 +3,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NEVER, Observable, Subject, of, throwError } from 'rxjs';
 import { BalanceService, LeaveTypeBalance, MyBalances } from '../dashboard/balance.service';
 import { ApplyLeave } from './apply-leave';
-import { LeavePreview, LeaveRequestSaved, LeaveRequestService, PreviewQuery } from './leave-request.service';
+import {
+  LeavePreview,
+  LeaveRequestSaved,
+  LeaveRequestService,
+  PreviewQuery,
+} from './leave-request.service';
 
 const annual: LeaveTypeBalance = {
   leaveTypeId: 1,
@@ -57,8 +62,7 @@ async function change(
   eventName: 'input' | 'change',
 ) {
   const field = (fixture.nativeElement as HTMLElement).querySelector(selector) as
-    | HTMLInputElement
-    | HTMLSelectElement;
+    HTMLInputElement | HTMLSelectElement;
   field.value = value;
   field.dispatchEvent(new Event(eventName));
   await fixture.whenStable();
@@ -113,8 +117,11 @@ describe('ApplyLeave', () => {
   });
 
   it.each([
-    ['notice.short', 'This leave type needs at least 3 working days\' notice.'],
-    ['leave.overlap', 'You already have a pending or approved leave request on one or more of these days.'],
+    ['notice.short', "This leave type needs at least 3 working days' notice."],
+    [
+      'leave.overlap',
+      'You already have a pending or approved leave request on one or more of these days.',
+    ],
     ['balance.insufficient', 'You do not have enough balance for these days.'],
   ])('shows the refusal for %s in an alert', async (code, detail) => {
     const refusal = new HttpErrorResponse({
@@ -200,7 +207,11 @@ describe('ApplyLeave', () => {
     };
 
     it('shows the count the server gives once a type and both dates are chosen', async () => {
-      const { fixture, page, previewSpy } = await render(() => of(saved), undefined, () => of(twoDays));
+      const { fixture, page, previewSpy } = await render(
+        () => of(saved),
+        undefined,
+        () => of(twoDays),
+      );
 
       await change(fixture, '#leave-type', '1', 'change');
       await change(fixture, '#start-date', '2026-11-27', 'input');
@@ -244,7 +255,11 @@ describe('ApplyLeave', () => {
     it('shows the server message when the dates break a rule, and no count', async () => {
       const refusal = new HttpErrorResponse({
         status: 422,
-        error: { title: 'Request refused', detail: 'The start date cannot be in the past.', code: 'date.past' },
+        error: {
+          title: 'Request refused',
+          detail: 'The start date cannot be in the past.',
+          code: 'date.past',
+        },
       });
       const { fixture, page } = await render(
         () => of(saved),
@@ -283,7 +298,11 @@ describe('ApplyLeave', () => {
     });
 
     it('does not change what is sent on submit: the server recounts', async () => {
-      const { fixture, applySpy } = await render(() => of(saved), undefined, () => of(twoDays));
+      const { fixture, applySpy } = await render(
+        () => of(saved),
+        undefined,
+        () => of(twoDays),
+      );
 
       await fillAndSubmit(fixture);
 
