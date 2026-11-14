@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>US-04: Apply for a half day</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --bg: #f6f8fa; --surface: #ffffff; --fg: #14202b; --muted: #55677a; --line: #dbe2ea;
+  --accent: #0a6c74; --accent-soft: #e0f1f2;
+  --ok: #17703f; --ok-bg: #e2f4ea; --warn: #85560a; --warn-bg: #fdf0d3; --bad: #a3261d; --bad-bg: #fce6e3;
+  --code-bg: #0f1b26; --code-fg: #d6e2ee; --inline-bg: #e9eef3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+    --accent: #55c7c9; --accent-soft: #11302f;
+    --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+    --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+  --accent: #55c7c9; --accent-soft: #11302f;
+  --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+  --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.page { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+header { display: flex; flex-direction: column; gap: 14px; }
+h1 { font-family: var(--font-head); font-size: clamp(1.6rem, 4.5vw, 2.3rem); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.facts dt { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding-top: 3px; }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 0.82rem; color: var(--accent); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; outline: none; }
+main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+h2 { font-family: var(--font-head); font-size: 1.35rem; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); text-wrap: balance; scroll-margin-top: 12px; }
+h3 { font-family: var(--font-head); font-size: 1.02rem; margin: 10px 0 0; color: var(--accent); }
+p { margin: 0; max-width: 72ch; }
+ul, ol { margin: 0; padding-left: 1.4rem; max-width: 76ch; display: flex; flex-direction: column; gap: 6px; }
+a { color: var(--accent); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--inline-bg); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+.code { overflow-x: auto; background: var(--code-bg); border-radius: 8px; border: 1px solid var(--line); }
+.code pre { margin: 0; padding: 14px 16px; }
+.code code { background: none; padding: 0; color: var(--code-fg); font-size: 0.8rem; line-height: 1.5; white-space: pre; overflow-wrap: normal; }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+td:first-child { min-width: 9rem; }
+td.st { font-weight: 600; }
+td.ok { color: var(--ok); background: var(--ok-bg); }
+td.warn { color: var(--warn); background: var(--warn-bg); }
+td.bad { color: var(--bad); background: var(--bad-bg); }
+footer { color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 560px) { .facts { grid-template-columns: 1fr; gap: 2px; } .facts dt { padding-top: 8px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+<h1>US-04: Apply for a half day</h1>
+<dl class="facts"><dt>Jira</dt><dd>SCRUM-11 · Story · To Do · Medium · epic SCRUM-7 (Leave Management App: MVP) · SCRUM Sprint 4 (active)</dd><dt>Code</dt><dd>PR #6 (open; found with <code>git ls-remote</code>, no <code>gh</code>) · branch <code>SCRUM-11-US-04-Apply-for-a-half-day</code> · head <code>06657da</code> (1 commit "LMS-US-04 halfday leave") · base <code>0cc3a56</code> (= main, merge of PR #5) · 13 files (+925, -19)</dd><dt>Written</dt><dd>2026-11-14. I read the code and the design documents. I did not build or run anything. Results marked "the owner's session" were given to me, not run by me.</dd></dl>
+<nav class="toc" aria-label="Sections"><a href="#what-the-story-is">What the story is</a><a href="#what-the-code-delivers">What the code delivers</a><a href="#acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</a><a href="#code-changes">Code changes</a><a href="#design-versus-code">Design versus code</a><a href="#state-of-the-tasks">State of the tasks</a><a href="#findings-and-gaps">Findings and gaps</a><a href="#why-it-is-built-this-way">Why it is built this way</a><a href="#interview-practice">Interview practice</a></nav>
+</header>
+<main>
+<h2 id="what-the-story-is">What the story is</h2>
+<p>An employee wants to take only half a day off, so that a full day is not taken from the balance. They pick one date and choose first half or second half. The count is 0.5. If they pick a range of several days, the half-day choice is switched off.</p>
+<p><strong>Why it matters:</strong> a half day is a real need, and the balance must go down by 0.5, not 1 (requirement BR-03, Must; policy rule 11).</p>
+<p><strong>Important:</strong> most of this story was built earlier, in PR #5 (US-03, SCRUM-10). PR #6 changes only the screen: the half-day choice is now always visible and disabled with a hint, instead of hidden. The rest of the PR is docs and tests.</p>
+<h2 id="what-the-code-delivers">What the code delivers</h2>
+<div class="code"><pre><code>Apply for leave (/apply-leave)       web: apply-leave.ts / .html       [PR #6 changed .html]
+  start = end ?  --yes--&gt; "Length of the day" select enabled (Full / First half / Second half)
+                 --no --&gt; select disabled + hint, value reset to None
+  |-- GET  /api/me/leave-requests/preview?halfDay=FirstHalf --&gt; LeavePlanner   [PR #5]
+  |-- POST /api/me/leave-requests (Idempotency-Key)         --&gt; LeavePlanner   [PR #5]
+        WorkingDayCalculator.Count: one day + half = 1 slot (AM or PM) = 0.5
+        LeaveRules.FirstViolation: range, weekend, holiday, type not allowing half -&gt; halfday.invalid
+        LeaveApplicationStore -&gt; leave.LeaveRequestDay (1 row) -&gt; balances (-0.5) -&gt; audit
+  +&lt;-- 200 {daysCount 0.5}   or   201 saved   or   422 halfday.invalid</code></pre></div>
+<ol><li><strong>PR #6, screen.</strong> <code>apply-leave.html</code> always shows the select "Length of the day". <code>canChooseHalfDay</code> (in <code>apply-leave.ts</code>, from PR #5) is true only when start and end are the same non-empty date. If it is false, the select gets <code>[disabled]</code> and <code>aria-describedby="half-day-hint"</code>.</li><li><strong>PR #6, hint.</strong> The hint text sits in a <code>div aria-live="polite"</code>, so a screen reader can announce it when the dates change. The wrapper div is always in the page; only the text appears and goes. (Live regions work best when they exist before the text changes.)</li><li><strong>PR #5, reset.</strong> <code>afterDatesChanged</code> sets the half day back to <code>None</code> when the dates stop matching. <code>submit</code> and <code>refreshPreview</code> also send <code>None</code> when the choice is not allowed.</li><li><strong>PR #5, count.</strong> <code>WorkingDayCalculator.Count</code> makes one slot for a single half day (AM for first half, PM for second half). A full day makes two slots. <code>DaysCount</code> = slots x 0.5, so one slot is 0.5 and always matches the saved day rows.</li><li><strong>PR #5, server rule.</strong> <code>LeaveRules.FirstViolation</code> refuses a half day when start is not end, when the leave type has <code>AllowHalfDay</code> false, or when the day has no slot (weekend or holiday). The code is <code>halfday.invalid</code>, with status 422.</li><li><strong>Why both layers.</strong> The screen only shapes the form (golden rule: the server enforces every rule). A client that skips the screen still gets 422.</li></ol>
+<p><strong>Example:</strong> Asha Nair (Employee) opens <code>/apply-leave</code>, picks Annual and Tue 2026-12-01 for start and end. The select turns on. She picks First half. The screen calls <code>GET /api/me/leave-requests/preview</code> with <code>halfDay=FirstHalf</code> and shows 0.5. She changes the end date to 2026-12-02. The select turns off, goes back to Full day, and the hint says a half day is for a single day only. If she called <code>POST /api/me/leave-requests</code> directly with a half day on two days, she would get 422 <code>halfday.invalid</code>.</p>
+<h2 id="acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</h2>
+<div class="table"><table><thead><tr><th>Criterion (from Jira)</th><th>Delivered by</th><th>State</th></tr></thead><tbody><tr><td>AC1. A single date, first half: count is 0.5</td><td>PR #5: <code>WorkingDayCalculator.Count</code>, <code>LeavePlanner</code>. PR #6: Vitest tests "asks for the FirstHalf/SecondHalf count and shows the 0.5"</td><td class="st ok">Done in code. The owner's session ran preview for FirstHalf and SecondHalf: 0.5. A real submit with the pending +0.5 check was NOT run</td></tr><tr><td>AC2. A multi-day range: the half-day option is disabled</td><td>PR #6: <code>apply-leave.html</code> (<code>[disabled]</code>, hint), tests in <code>describe('half-day choice')</code>. Server backstop from PR #5: <code>halfday.invalid</code></td><td class="st ok">Done in code and Vitest. Not seen in a browser. The owner's session confirmed the server refusal (422) on a two-day range</td></tr></tbody></table></div>
+<p>Note: PR #5 hid the option on a range. Jira says "disabled". PR #6 closes that gap.</p>
+<h2 id="code-changes">Code changes</h2>
+<p><strong>Front end (<code>web/src/app/</code>)</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it does</th></tr></thead><tbody><tr><td><code>features/apply-leave/apply-leave.html</code></td><td>Changed in PR #6. Select always rendered; <code>[disabled]</code> and <code>aria-describedby</code> when not a single day; hint inside <code>aria-live="polite"</code></td></tr><tr><td><code>features/apply-leave/apply-leave.scss</code></td><td>Changed in PR #6. Small <code>.hint</code> rule under <code>.field</code> (the old one only applied under <code>.preview</code>)</td></tr><tr><td><code>features/apply-leave/apply-leave.ts</code></td><td>Not in this diff. From PR #5: <code>canChooseHalfDay</code>, reset in <code>afterDatesChanged</code>, <code>None</code> fallback. Read at the head ref</td></tr></tbody></table></div>
+<p><strong>Back end (<code>src/</code>)</strong></p>
+<p>No back-end file changed in PR #6. The half-day logic below was built in PR #5 and read at the head ref:</p>
+<div class="table"><table><thead><tr><th>File</th><th>What it does</th></tr></thead><tbody><tr><td><code>Domain/WorkingDayCalculator.cs</code></td><td>Pure count. One half slot for a single half day, two slots for a full day</td></tr><tr><td><code>Domain/LeaveRules.cs</code></td><td>Rule 11: refuses a half day on a range, on a type with <code>AllowHalfDay</code> false, or on a day with no slot</td></tr><tr><td><code>Application/Leave/LeavePlanner.cs</code></td><td>Shared by apply and preview. Passes <code>type.AllowHalfDay</code> to the rules</td></tr><tr><td><code>Application/Leave/LeaveRuleError.cs</code></td><td>Code <code>halfday.invalid</code> and its message</td></tr></tbody></table></div>
+<p><strong>Database</strong></p>
+<p>No change. No migration.</p>
+<p><strong>Tests</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it checks</th></tr></thead><tbody><tr><td><code>features/apply-leave/apply-leave.spec.ts</code></td><td>Changed in PR #6. Replaces one old test (select removed) with 6 tests in <code>half-day choice</code> (visible but disabled before dates and on a range, enabled on one day, reset to None, enabled again, refusal shown) and 3 tests in <code>a single half day</code>, two of them run for both halves (preview asks for the half and shows 0.5, submit sends the half, refusal shown). I read the diff, not every helper</td></tr></tbody></table></div>
+<p>There is no .NET test project (Phase 5). The server behaviour is covered only by manual API calls.</p>
+<p><strong>Docs and tooling</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it is</th></tr></thead><tbody><tr><td><code>ai/specs/us04-apply-half-day/</code> (spec, plan, research, data-model, quickstart, tasks, contracts, checklists)</td><td>Spec set for SCRUM-11. I read tasks fully and the rest lightly</td></tr><tr><td><code>ai/learning/us04-apply-half-day.md</code></td><td>The learning note. Not read</td></tr><tr><td><code>ai/specs/INDEX.md</code></td><td>Modified. Row for US-04</td></tr></tbody></table></div>
+<h2 id="design-versus-code">Design versus code</h2>
+<div class="table"><table><thead><tr><th>Point</th><th>Design says</th><th>Code does</th><th>Match?</th></tr></thead><tbody><tr><td>Half-day control</td><td>3a (65835) wireframe: checkbox "Half day" plus two radios</td><td>One select "Length of the day" (Full day, First half, Second half). Same behaviour</td><td class="st warn">Differs</td></tr><tr><td>Single date only</td><td>3a validation and rule 11 (229377): single day only</td><td>Select disabled on a range; server refuses</td><td class="st ok">Yes</td></tr><tr><td>Counts 0.5</td><td>Rule 11</td><td>One slot = 0.5</td><td class="st ok">Yes</td></tr><tr><td>halfDay values</td><td>3d A1: None, FirstHalf, SecondHalf</td><td><code>HalfDay</code> None, FirstHalf, SecondHalf</td><td class="st ok">Yes</td></tr><tr><td>Endpoints</td><td>3d: <code>POST /api/v1/leave-requests/preview</code> (JSON body) and <code>POST /api/v1/leave-requests</code></td><td><code>GET /api/me/leave-requests/preview</code> (query) and <code>POST /api/me/leave-requests</code></td><td class="st warn">Differs</td></tr><tr><td>Error codes</td><td>3d: snake_case, e.g. <code>insufficient_balance</code></td><td>Dotted: <code>halfday.invalid</code>, <code>balance.insufficient</code></td><td class="st warn">Differs</td></tr><tr><td>Status for rule failure</td><td>3d: 422 with stable <code>code</code>, Problem Details</td><td>422 with <code>code</code></td><td class="st ok">Yes</td></tr><tr><td>Weekend or holiday half day</td><td>Spec (US-03 and US-04): refused as "no working time" (<code>days.none</code>)</td><td>Server answers <code>halfday.invalid</code> (the rule code says it is done on purpose)</td><td class="st warn">Differs (still refused)</td></tr><tr><td>Half-day option on a range</td><td>Jira AC2: disabled</td><td>PR #5 hid it; PR #6 disables it with a hint</td><td class="st ok">Yes after PR #6</td></tr><tr><td>Accessibility</td><td>3a: visible label, errors next to the field and announced, no colour alone</td><td>Label, hint text linked by <code>aria-describedby</code>, live region. Not tested with a screen reader</td><td class="st warn">Partly (unverified)</td></tr><tr><td>Validation in both layers</td><td>ADR 28: Angular and API, rules in the API</td><td>Screen shapes, server decides</td><td class="st ok">Yes</td></tr><tr><td>Half day per type</td><td>Seeded types have <code>AllowHalfDay</code></td><td>The screen cannot know it; server refuses</td><td class="st warn">Partly</td></tr></tbody></table></div>
+<p><strong>Design documents used:</strong></p>
+<ul><li>Jira SCRUM-11 (facts from the prompt)</li><li>Confluence LMA: Leave-Policy Rules 229377, Phase 1 Requirements 98443, Phase 3a UI/UX 65835, Phase 3d API 1277972 (excerpts from the prompt)</li><li><code>ai/specs/us04-apply-half-day/tasks.md</code> (read in full); <code>ai/steering/*</code>; US-03 note</li></ul>
+<p><strong>Looked for and not found:</strong> a separate half-day design page beyond S-03; Phase 3e class design and 3f Angular design (not in the LMA space). Not read in full: the other files in the US-04 spec folder, <code>ai/learning/us04-apply-half-day.md</code>.</p>
+<h2 id="state-of-the-tasks">State of the tasks</h2>
+<p><code>us04-apply-half-day/tasks.md</code>: T001 to T007, all ticked (7 of 7).</p>
+<ul><li>Done: T001 baseline; T002 template; T003 screen tests; T004 half-day tests; T005 API checks (partial, see below); T006 <code>/ci-check</code>; T007 review, learn, status.</li><li>Open: none in the file. But T005 itself is only partly done. Scenario A (real submit) and B (browser) are not run, and the file says so.</li></ul>
+<h2 id="findings-and-gaps">Findings and gaps</h2>
+<ul><li><strong>Jira says To Do, the code is built and pushed.</strong> All 7 tasks are ticked and PR #6 is open. Jira should probably move to In Progress or Review. Your decision.</li><li><strong>Most of the story is PR #5, not PR #6.</strong> PR #6 is a small screen change plus tests and docs. Review the two PRs together.</li><li><strong>The wireframe differs.</strong> Design shows a checkbox plus two radios. Code uses one select. Behaviour is the same. Either the wireframe or the code should be updated.</li><li><strong>API contract differs from 3d</strong> (path, version prefix, preview verb, snake_case versus dotted codes). This was already found in US-03; the code follows the repo contract and 3d is a draft.</li><li><strong>Open owner decision: weekend or holiday half day.</strong> The spec says <code>days.none</code>; the server returns <code>halfday.invalid</code> with a less exact message. It is refused either way. Accept it or open a small change.</li><li><strong>Not run:</strong> a real half-day submit with the pending +0.5 check (it would leave a request in the owner's LocalDB); the screen in a browser; a screen reader; any .NET test (none exist).</li><li><strong>What the owner's session ran (I did not):</strong> web format check, 112 of 112 Vitest tests, web build, back-end Release build and format checks, package vulnerability checks, all passed in <code>/ci-check</code> on 2026-11-14, before the final commit (the commit has the same files). Real API: preview for one day as FirstHalf and SecondHalf gave <code>daysCount</code> 0.5; a half day on a two-day range, on Saturday 2026-12-05 and on Christmas 2026-12-25 gave 422 <code>halfday.invalid</code>; balances unchanged.</li><li><strong>What I could not verify:</strong> all of the above results, the PR page and its checks, and the layout of the new hint.</li></ul>
+<h2 id="why-it-is-built-this-way">Why it is built this way</h2>
+<div class="table"><table><thead><tr><th>Decision</th><th>Chosen</th><th>Rejected, and why</th></tr></thead><tbody><tr><td>Range with half day</td><td>Select always visible, disabled, with a hint</td><td>Hiding it (PR #5): the user cannot tell the option exists or why it is missing; Jira says "disabled"</td></tr><tr><td>Announcing the hint</td><td>Always-present <code>aria-live="polite"</code> wrapper, text inside changes</td><td>A live region created together with its text: screen readers may miss it</td></tr><tr><td>Counting a half day</td><td>One slot, <code>DaysCount</code> = slots x 0.5</td><td>A separate 0.5 flag: it could disagree with the saved day rows</td></tr><tr><td>Where the rule lives</td><td>Server refuses (<code>halfday.invalid</code>); screen only disables</td><td>Screen-only check: a direct API call would bypass it (golden rule, ADR 28)</td></tr><tr><td>Control type</td><td>One select</td><td>Checkbox plus radios (wireframe): more controls and states to keep in step; not stated in a document why</td></tr><tr><td>Reset on date change</td><td>Back to <code>None</code></td><td>Keep the old half choice: a hidden half-day value could be sent on a range</td></tr></tbody></table></div>
+<p>The "control type" reason is my reading; the spec's <code>research.md</code> R4 covers the <code>[selected]</code> binding only, and I did not find a design reason for the select.</p>
+<h2 id="interview-practice">Interview practice</h2>
+<ol><li><strong>Q:</strong> How is a half day stored and counted? <strong>A:</strong> As one half-day slot (AM or PM) in the day rows. <code>DaysCount</code> is slots x 0.5, so a half day is 0.5 and always matches the rows.</li><li><strong>Q:</strong> Why disable the control and also refuse on the server? <strong>A:</strong> The screen only helps the user. The server enforces every rule, so a direct API call on a range still gets 422 <code>halfday.invalid</code>.</li><li><strong>Q:</strong> Why disabled with a hint instead of hidden? <strong>A:</strong> A hidden option gives no clue. A disabled one with a linked hint explains why. <code>aria-describedby</code> and a polite live region make a screen reader say it too.</li><li><strong>Q:</strong> Why does the screen reset the half choice when the dates change? <strong>A:</strong> A half day only means something on one day. Resetting to <code>None</code> stops a stale value being sent with a range.</li><li><strong>Q:</strong> Why 422 and not 400 for <code>halfday.invalid</code>? <strong>A:</strong> The request is well formed but breaks a business rule. The API uses 422 with a stable <code>code</code> for rule failures.</li><li><strong>Q:</strong> How did you test it with no .NET tests? <strong>A:</strong> Vitest covers the screen (disabled, reset, 0.5 shown, body sent, refusal shown). The server was checked by manual API calls. I say plainly that no .NET test exists yet (Phase 5).</li></ol>
+<p><strong>Teach-back (answer in your own words):</strong></p>
+<ol><li>Follow a first-half request for one working day from the select to the database. Which function makes the slot, and what is <code>DaysCount</code>?</li><li>Which parts of "half day only on a single date" are in the screen, and which in the server? What happens if the screen is bypassed?</li><li>The weekend half day returns <code>halfday.invalid</code> while the spec says <code>days.none</code>. What would you check before choosing which to change, and who owns the decision?</li></ol>
+</main>
+<footer>Generated from US-04-apply-half-day.md by US-knowledge/build-html.js. Edit the .md file, then run the script again.</footer>
+</div>
+</body>
+</html>
