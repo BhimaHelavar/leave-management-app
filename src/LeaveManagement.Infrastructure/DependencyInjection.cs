@@ -1,3 +1,4 @@
+using LeaveManagement.Application.Approvals;
 using LeaveManagement.Application.Auditing;
 using LeaveManagement.Application.Balances;
 using LeaveManagement.Application.Leave;
@@ -33,6 +34,8 @@ public static class DependencyInjection
         services.AddScoped<IHolidayReader, HolidayReader>();
         services.AddScoped<ILeaveTypeReader, LeaveTypeReader>();
         services.AddScoped<ILeaveApplicationStore, LeaveApplicationStore>();
+        services.AddScoped<IDirectReportReader, DirectReportReader>();
+        services.AddScoped<IApprovalRequestReader, ApprovalRequestReader>();
 
         return services;
     }
