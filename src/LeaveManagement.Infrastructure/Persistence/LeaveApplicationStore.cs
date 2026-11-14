@@ -47,18 +47,13 @@ internal sealed class LeaveApplicationStore(
         // The usual overlap gets a clear answer here, before anything is written. The unique index
         // in step 3 stays as the backstop for two submits that race each other.
         var wanted = a.Slots.Select(s => (s.Date, s.Slot)).ToHashSet();
-        var taken = await db.LeaveRequestDays
-            .AsNoTracking()
-            .Where(d => d.EmployeeId == a.EmployeeId
-                && d.LeaveDate >= request.StartDate && d.LeaveDate <= request.EndDate)
-            .Select(d => new { d.LeaveDate, d.Slot })
-            .ToListAsync(ct);
-        if (taken.Any(d => wanted.Contains((d.LeaveDate, d.Slot))))
+        var clashingDates = await ClashingDatesAsync(a.EmployeeId, request.StartDate, request.EndDate, wanted, ct);
+        if (clashingDates.Count > 0)
         {
             // The days may be taken by the very request this key already saved: a parallel twin that
             // committed after step 1 looked. Then this is a retry, and the answer is the saved one.
             var twin = await FindSavedAnswerAsync(a.EmployeeId, a.IdempotencyKey, a.RequestHash, ct);
-            return twin ?? ApplyResult.Fail(LeaveRuleErrors.Overlap());
+            return twin ?? ApplyResult.Fail(LeaveRuleErrors.Overlap(clashingDates));
         }
 
         // 2. The request. Status is always Pending; the client cannot set it.
@@ -102,7 +97,15 @@ internal sealed class LeaveApplicationStore(
             // and the loser hits the day index here, only after the winner committed its answer. So look for
             // that answer first. It is an overlap only when no answer for this key exists.
             var winner = await FindSavedAnswerAsync(a.EmployeeId, a.IdempotencyKey, a.RequestHash, ct);
-            return winner ?? ApplyResult.Fail(LeaveRuleErrors.Overlap());
+            if (winner is not null)
+            {
+                return winner;
+            }
+
+            // Name the dates the winner now holds. If none can be read, the list is empty and the message
+            // keeps the general wording.
+            var raced = await ClashingDatesAsync(a.EmployeeId, request.StartDate, request.EndDate, wanted, ct);
+            return ApplyResult.Fail(LeaveRuleErrors.Overlap(raced));
         }
 
         if (a.HasBalance)
@@ -196,6 +199,27 @@ internal sealed class LeaveApplicationStore(
 
         await tx.CommitAsync(ct);
         return ApplyResult.Ok(response);
+    }
+
+    /// <summary>
+    /// The dates in [start, end] where this person already holds one of the wanted slots (pending or approved,
+    /// because only those hold day rows). Own rows only, so no one else's leave is read or named (security rules 4, 12).
+    /// </summary>
+    private async Task<List<DateOnly>> ClashingDatesAsync(
+        int employeeId, DateOnly start, DateOnly end, HashSet<(DateOnly Date, Slot Slot)> wanted, CancellationToken ct)
+    {
+        var taken = await db.LeaveRequestDays
+            .AsNoTracking()
+            .Where(d => d.EmployeeId == employeeId && d.LeaveDate >= start && d.LeaveDate <= end)
+            .Select(d => new { d.LeaveDate, d.Slot })
+            .ToListAsync(ct);
+
+        return taken
+            .Where(d => wanted.Contains((d.LeaveDate, d.Slot)))
+            .Select(d => d.LeaveDate)
+            .Distinct()
+            .Order()
+            .ToList();
     }
 
     public async Task<ApplyResult?> FindSavedAnswerAsync(

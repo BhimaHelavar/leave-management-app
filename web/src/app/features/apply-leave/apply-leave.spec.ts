@@ -137,6 +137,37 @@ describe('ApplyLeave', () => {
     expect(page.querySelector('.saved')).toBeNull();
   });
 
+  it('shows the dates the server names in an overlap refusal and saves nothing', async () => {
+    const refusal = new HttpErrorResponse({
+      status: 409,
+      error: {
+        title: 'Request refused',
+        detail: 'You already have a pending or approved leave request on 2026-12-01, 2026-12-02.',
+        code: 'leave.overlap',
+      },
+    });
+    const { fixture, page } = await render(() => throwError(() => refusal));
+
+    await fillAndSubmit(fixture);
+
+    const alert = page.querySelector('[role="alert"]')?.textContent ?? '';
+    expect(alert).toContain('2026-12-01');
+    expect(alert).toContain('2026-12-02');
+    expect(page.querySelector('.saved')).toBeNull();
+  });
+
+  it('shows the general overlap wording when the refusal names no dates', async () => {
+    const refusal = new HttpErrorResponse({ status: 409, error: { code: 'leave.overlap' } });
+    const { fixture, page } = await render(() => throwError(() => refusal));
+
+    await fillAndSubmit(fixture);
+
+    expect(page.querySelector('[role="alert"]')?.textContent).toContain(
+      'You already have a pending or approved leave request on one or more of these days.',
+    );
+    expect(page.querySelector('.saved')).toBeNull();
+  });
+
   it('falls back to the screen wording when a known code arrives without a detail', async () => {
     const refusal = new HttpErrorResponse({ status: 422, error: { code: 'year.cross' } });
     const { fixture, page } = await render(() => throwError(() => refusal));
