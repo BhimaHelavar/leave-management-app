@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace LeaveManagement.Infrastructure.Persistence;
 
@@ -31,7 +32,11 @@ public static class DatabaseInitializer
         if (seedDemoData)
         {
             await DevSeeder.SeedAsync(db, ct);
-            await DemoBalanceScenarios.SeedAsync(db, scope.ServiceProvider.GetRequiredService<TimeProvider>(), ct);
+            var time = scope.ServiceProvider.GetRequiredService<TimeProvider>();
+            await DemoBalanceScenarios.SeedAsync(db, time, ct);
+
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DemoHolidays");
+            await DemoHolidays.SeedAsync(db, time, logger, ct);
         }
     }
 }

@@ -1,6 +1,7 @@
 using LeaveManagement.Api.Admin;
 using LeaveManagement.Api.Auth;
 using LeaveManagement.Api.Balances;
+using LeaveManagement.Api.Leave;
 using LeaveManagement.Application;
 using LeaveManagement.Infrastructure;
 using LeaveManagement.Infrastructure.Persistence;
@@ -67,6 +68,7 @@ app.UseAuthorization();
 app.MapAuthEndpoints(mapDevEndpoints: authMode == "Dev");
 app.MapAdminEndpoints();
 app.MapBalanceEndpoints();
+app.MapLeaveRequestEndpoints();
 
 // /health stays public on purpose; everything else needs a signed-in person (fallback policy).
 app.MapGet("/health", async (LeaveDbContext db, TimeProvider time, CancellationToken ct) =>

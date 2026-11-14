@@ -40,3 +40,4 @@ node US-knowledge/build-html.js
 | --- | --- | --- | --- | --- | --- |
 | US-01 | Sign in and see only what my role allows (SCRUM-8) | In Progress | PR #2 (open) | [US-01-sign-in-by-role.md](US-01-sign-in-by-role.md) | 2026-11-10 |
 | US-02 | See my leave balance per leave type (SCRUM-9) | Done | No PR; uncommitted on branch `SCRUM-9-US-02-See-my-leave-balance-per-leave-type` (base d91c678) | [US-02-see-leave-balance.md](US-02-see-leave-balance.md) | 2026-11-10 |
+| US-03 | Apply for leave with an accurate working-day count (SCRUM-10) | To Do | [PR #5](https://github.com/BhimaHelavar/leave-management-app/pull/5) (not merged; open or closed state not read), head f940fe8 on branch `SCRUM-10-US-03-Apply-for-leave-with-an-accurate-working-day-count` (base 9390de5) | [US-03-apply-leave-working-days.md](US-03-apply-leave-working-days.md) | 2026-11-13 |

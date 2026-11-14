@@ -22,7 +22,7 @@ Dependencies point inward: Api and Infrastructure -> Application -> Domain. Doma
 
 ## Database schemas (one per module)
 
-`people` (Location, Employee, EmployeeRole), `balances` (LeaveType, Holiday, LeaveBalance, LeaveBalanceEntry), `leave` (LeaveRequest, LeaveRequestDay, IdempotencyKey), `notify` (OutboxMessage, ProcessedMessage), `audit` (AuditEvent). Code in one module does not read another module's tables, even though foreign keys cross schemas.
+`people` (Location, Employee, EmployeeRole), `balances` (LeaveType, Holiday, LeaveBalance, LeaveBalanceEntry), `leave` (LeaveRequest, LeaveRequestDay, IdempotencyKey), `notify` (OutboxMessage, ProcessedMessage), `audit` (AuditEvent). Code in one module does not read another module's tables, even though foreign keys cross schemas. One exception (constitution 1.2.0): a single Application-level store may write across modules in one database transaction when a rule needs that atomicity, for example a leave request, its balance deduction and its audit row. The spec must name each such store, and reference data from other modules is still read through ports.
 
 ## Web structure
 

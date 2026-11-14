@@ -12,6 +12,9 @@ public static class DependencyInjection
     {
         // Use cases and validators are registered here.
         services.AddScoped<Balances.GetMyBalances>();
+        services.AddScoped<Leave.LeavePlanner>();
+        services.AddScoped<Leave.ApplyForLeave>();
+        services.AddScoped<Leave.PreviewWorkingDays>();
         return services;
     }
 }

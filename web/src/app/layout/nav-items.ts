@@ -18,6 +18,7 @@ const EVERYONE: readonly Role[] = ['Employee', 'Manager', 'HR', 'Admin'];
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Dashboard', path: 'dashboard', roles: EVERYONE },
+  { label: 'Apply for leave', path: 'apply-leave', roles: EVERYONE },
   { label: 'My requests', path: 'requests', roles: EVERYONE },
   { label: 'Approvals', path: 'approvals', roles: ['Manager'] },
   { label: 'Reports', path: 'reports', roles: ['HR'] },

@@ -1,0 +1,69 @@
+.apply {
+  max-width: 32rem;
+  padding: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-weight: 600;
+  }
+
+  select,
+  input,
+  textarea {
+    font: inherit;
+    padding: 0.4rem;
+  }
+}
+
+.preview {
+  margin-bottom: 1rem;
+  min-height: 1.5rem;
+
+  .count {
+    margin: 0 0 0.25rem;
+  }
+
+  .dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    list-style: none;
+    margin: 0 0 0.25rem;
+    padding: 0;
+  }
+
+  .skipped,
+  .note,
+  .hint {
+    color: #555;
+    font-size: 0.85rem;
+    margin: 0 0 0.25rem;
+  }
+}
+
+button[type='submit'] {
+  font: inherit;
+  padding: 0.5rem 1rem;
+}
+
+.saved {
+  border: 1px solid #1b6e3c;
+  border-radius: 0.5rem;
+  color: #1b6e3c;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.error {
+  border: 1px solid #b00020;
+  border-radius: 0.5rem;
+  color: #b00020;
+  margin-top: 1rem;
+  padding: 1rem;
+}

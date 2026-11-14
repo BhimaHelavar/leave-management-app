@@ -4,6 +4,7 @@ import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { NEVER } from 'rxjs';
 import { routes } from './app.routes';
+import { LeaveRequestService } from './features/apply-leave/leave-request.service';
 import { BalanceService } from './features/dashboard/balance.service';
 import { authGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
@@ -21,6 +22,7 @@ async function navigate(
       provideRouter(routes),
       // The dashboard route loads real data; these tests only check routing, so the balances load is stubbed.
       { provide: BalanceService, useValue: { getMyBalances: () => NEVER } },
+      { provide: LeaveRequestService, useValue: { apply: () => NEVER } },
       { provide: AuthService, useValue: { roles: signal(roles), isSignedIn: signal(signedIn) } },
     ],
   });
@@ -51,6 +53,14 @@ describe('routes', () => {
     expect(result.url).toBe('/approvals');
     expect(result.text).toContain('Approvals');
     expect(result.text).toContain('Coming soon');
+  });
+
+  it('opens the Apply for leave screen for a signed-in person', async () => {
+    const result = await navigate('/apply-leave', ['Employee']);
+
+    expect(result.url).toBe('/apply-leave');
+    expect(result.text).toContain('Apply for leave');
+    expect(result.text).not.toContain('Coming soon');
   });
 
   it('sends a signed-out person to the sign-in screen', async () => {

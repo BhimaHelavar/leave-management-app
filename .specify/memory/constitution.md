@@ -2,12 +2,15 @@
 Sync Impact Report (temporary; remove before commit)
 
 
-Version change: 1.0.0 -> 1.1.0 (MINOR: materially expanded guidance)
-Modified principles: II (adds Dev-sign-in environment rule); Technology constraints (Demo environment)
+Version change: 1.1.0 -> 1.2.0 (MINOR: materially expanded guidance)
+Modified principles: III (adds one exception to the schema-module rule: a single cross-module
+  write store inside one transaction)
 Added sections: none
 Removed sections: none
 Deferred TODOs: none
-Source: owner decision for SCRUM-26 (Demo environment); mirrors security.md rule 6.
+Source: owner decision for SCRUM-10 / US-03 (analysis finding C1, option a), 2026-11-13;
+  mirrored in ai/steering/structure.md.
+Earlier: 1.0.0 -> 1.1.0 for SCRUM-26 (Demo environment); mirrors security.md rule 6.
 -->
 # Leave Management (LMS) Constitution
 
@@ -36,6 +39,10 @@ Detail: `ai/steering/security.md` (14 rules; a review fails if one is broken).
 Dependencies point inward: Api and Infrastructure -> Application -> Domain. Domain MUST NOT
 reference EF Core, ASP.NET or any package. Changes stay small and in the layer where they belong.
 Code in one schema module MUST NOT read another module's tables.
+One exception: a single Application-level store MAY write across modules in one database
+transaction when a rule needs that atomicity (for example a leave request, its balance deduction
+and its audit row). Each such store MUST be named in its spec. Reference data from other modules
+MUST still be read through ports.
 Detail: `ai/steering/structure.md`.
 
 ### IV. Correct Dates and Time
@@ -87,4 +94,4 @@ principle or materially expanded guidance, PATCH for wording fixes. A change to 
 MUST be mirrored here in the same change. Every review (`/review`) MUST check compliance with
 these principles.
 
-**Version**: 1.1.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02
+**Version**: 1.2.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-13
