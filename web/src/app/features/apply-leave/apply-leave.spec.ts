@@ -188,15 +188,172 @@ describe('ApplyLeave', () => {
     expect(applySpy).not.toHaveBeenCalled();
   });
 
-  it('offers the half-day choice only when start and end are the same day', async () => {
-    const { fixture, page } = await render(() => of(saved));
+  describe('half-day choice', () => {
+    const halfDayField = (page: HTMLElement) =>
+      page.querySelector('#half-day') as HTMLSelectElement;
 
-    await change(fixture, '#start-date', '2026-12-01', 'input');
-    await change(fixture, '#end-date', '2026-12-02', 'input');
-    expect(page.querySelector('#half-day')).toBeNull();
+    it('is visible but disabled, with a hint, before any date is chosen', async () => {
+      const { page } = await render(() => of(saved));
 
-    await change(fixture, '#end-date', '2026-12-01', 'input');
-    expect(page.querySelector('#half-day')).not.toBeNull();
+      expect(halfDayField(page)).not.toBeNull();
+      expect(halfDayField(page).disabled).toBe(true);
+      expect(page.querySelector('#half-day-hint')).not.toBeNull();
+    });
+
+    it('is visible but disabled and explained when start and end are different days', async () => {
+      const { fixture, page } = await render(() => of(saved));
+
+      await change(fixture, '#start-date', '2026-12-01', 'input');
+      await change(fixture, '#end-date', '2026-12-02', 'input');
+
+      expect(halfDayField(page)).not.toBeNull();
+      expect(halfDayField(page).disabled).toBe(true);
+      expect(halfDayField(page).getAttribute('aria-describedby')).toBe('half-day-hint');
+      expect(page.querySelector('#half-day-hint')?.textContent).toContain('single day only');
+      // The hint sits in a live region so a change of dates is announced.
+      expect(page.querySelector('#half-day-hint')?.parentElement?.getAttribute('aria-live')).toBe(
+        'polite',
+      );
+    });
+
+    it('is enabled, without the hint, when start and end are the same day', async () => {
+      const { fixture, page } = await render(() => of(saved));
+
+      await change(fixture, '#start-date', '2026-12-01', 'input');
+      await change(fixture, '#end-date', '2026-12-01', 'input');
+
+      expect(halfDayField(page).disabled).toBe(false);
+      expect(halfDayField(page).hasAttribute('aria-describedby')).toBe(false);
+      expect(page.querySelector('#half-day-hint')).toBeNull();
+    });
+
+    it('goes back to full day and is disabled when the end date moves to a later day', async () => {
+      const { fixture, page } = await render(() => of(saved));
+      await change(fixture, '#start-date', '2026-12-01', 'input');
+      await change(fixture, '#end-date', '2026-12-01', 'input');
+      await change(fixture, '#half-day', 'FirstHalf', 'change');
+      expect(halfDayField(page).value).toBe('FirstHalf');
+
+      await change(fixture, '#end-date', '2026-12-02', 'input');
+
+      expect(halfDayField(page).disabled).toBe(true);
+      expect(halfDayField(page).value).toBe('None');
+    });
+
+    it('is enabled again, starting at full day, when the dates become one day again', async () => {
+      const { fixture, page } = await render(() => of(saved));
+      await change(fixture, '#start-date', '2026-12-01', 'input');
+      await change(fixture, '#end-date', '2026-12-01', 'input');
+      await change(fixture, '#half-day', 'SecondHalf', 'change');
+      await change(fixture, '#end-date', '2026-12-02', 'input');
+
+      await change(fixture, '#end-date', '2026-12-01', 'input');
+
+      expect(halfDayField(page).disabled).toBe(false);
+      expect(halfDayField(page).value).toBe('None');
+    });
+
+    // The server refusing a half day on a range (FR-006) is checked by the API calls in quickstart.md; this
+    // test only covers what the screen sends and how it shows a refusal.
+    it('sends a full-day request for a range and shows the refusal message it gets back', async () => {
+      const refusal = new HttpErrorResponse({
+        status: 422,
+        error: { title: 'Request refused', code: 'halfday.invalid' },
+      });
+      const { fixture, page, applySpy } = await render(() => throwError(() => refusal));
+
+      await fillAndSubmit(fixture);
+
+      expect(halfDayField(page).disabled).toBe(true);
+      const [body] = applySpy.mock.calls[0];
+      expect((body as { halfDay: string }).halfDay).toBe('None');
+      expect(page.querySelector('[role="alert"]')?.textContent).toContain(
+        'A half day must be a single working day',
+      );
+    });
+  });
+
+  describe('a single half day', () => {
+    const halfDayPreview: LeavePreview = {
+      daysCount: 0.5,
+      workingDays: ['2026-12-01'],
+      skippedHolidays: [],
+    };
+
+    async function chooseSingleDay(fixture: ComponentFixture<ApplyLeave>, half: string) {
+      await change(fixture, '#leave-type', '1', 'change');
+      await change(fixture, '#start-date', '2026-12-01', 'input');
+      await change(fixture, '#end-date', '2026-12-01', 'input');
+      await change(fixture, '#half-day', half, 'change');
+    }
+
+    function submit(fixture: ComponentFixture<ApplyLeave>) {
+      const form = (fixture.nativeElement as HTMLElement).querySelector('form') as HTMLFormElement;
+      form.dispatchEvent(new Event('submit'));
+      return fixture.whenStable();
+    }
+
+    it.each(['FirstHalf', 'SecondHalf'])(
+      'asks for the %s count and shows the 0.5 the server gives',
+      async (half) => {
+        const { fixture, page, previewSpy } = await render(
+          () => of(saved),
+          undefined,
+          () => of(halfDayPreview),
+        );
+
+        await chooseSingleDay(fixture, half);
+
+        expect(previewSpy).toHaveBeenLastCalledWith({
+          leaveTypeId: 1,
+          startDate: '2026-12-01',
+          endDate: '2026-12-01',
+          halfDay: half,
+        });
+        expect(page.querySelector('.preview .count')?.textContent).toContain('0.5');
+      },
+    );
+
+    it.each(['FirstHalf', 'SecondHalf'])('sends %s for one day on submit', async (half) => {
+      const { fixture, page, applySpy } = await render(
+        () => of({ ...saved, halfDay: half as 'FirstHalf' | 'SecondHalf', daysCount: 0.5 }),
+        undefined,
+        () => of(halfDayPreview),
+      );
+
+      await chooseSingleDay(fixture, half);
+      await submit(fixture);
+
+      const [body] = applySpy.mock.calls[0];
+      expect(body).toEqual({
+        leaveTypeId: 1,
+        startDate: '2026-12-01',
+        endDate: '2026-12-01',
+        halfDay: half,
+        reason: null,
+      });
+      expect(page.querySelector('.saved')?.textContent).toContain('0.5 days');
+    });
+
+    it('shows the refusal when the server does not allow a half day for the leave type', async () => {
+      const refusal = new HttpErrorResponse({
+        status: 422,
+        error: { title: 'Request refused', code: 'halfday.invalid' },
+      });
+      const { fixture, page } = await render(
+        () => throwError(() => refusal),
+        undefined,
+        () => of(halfDayPreview),
+      );
+
+      await chooseSingleDay(fixture, 'FirstHalf');
+      await submit(fixture);
+
+      expect(page.querySelector('[role="alert"]')?.textContent).toContain(
+        'this leave type must allow half days',
+      );
+      expect(page.querySelector('.saved')).toBeNull();
+    });
   });
 
   describe('preview', () => {
