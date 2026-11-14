@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>US-06: Review pending requests in a manager inbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --bg: #f6f8fa; --surface: #ffffff; --fg: #14202b; --muted: #55677a; --line: #dbe2ea;
+  --accent: #0a6c74; --accent-soft: #e0f1f2;
+  --ok: #17703f; --ok-bg: #e2f4ea; --warn: #85560a; --warn-bg: #fdf0d3; --bad: #a3261d; --bad-bg: #fce6e3;
+  --code-bg: #0f1b26; --code-fg: #d6e2ee; --inline-bg: #e9eef3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+    --accent: #55c7c9; --accent-soft: #11302f;
+    --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+    --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141b; --surface: #141d26; --fg: #e5edf4; --muted: #93a5b6; --line: #263443;
+  --accent: #55c7c9; --accent-soft: #11302f;
+  --ok: #62d394; --ok-bg: #11301f; --warn: #f0b94d; --warn-bg: #382b0c; --bad: #ff8c82; --bad-bg: #3a1613;
+  --code-bg: #091016; --code-fg: #d6e2ee; --inline-bg: #1d2935; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.page { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+header { display: flex; flex-direction: column; gap: 14px; }
+h1 { font-family: var(--font-head); font-size: clamp(1.6rem, 4.5vw, 2.3rem); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.facts dt { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding-top: 3px; }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; }
+nav.toc a { font-size: 0.82rem; color: var(--accent); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; outline: none; }
+main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+h2 { font-family: var(--font-head); font-size: 1.35rem; margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); text-wrap: balance; scroll-margin-top: 12px; }
+h3 { font-family: var(--font-head); font-size: 1.02rem; margin: 10px 0 0; color: var(--accent); }
+p { margin: 0; max-width: 72ch; }
+ul, ol { margin: 0; padding-left: 1.4rem; max-width: 76ch; display: flex; flex-direction: column; gap: 6px; }
+a { color: var(--accent); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--inline-bg); padding: 1px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+.code { overflow-x: auto; background: var(--code-bg); border-radius: 8px; border: 1px solid var(--line); }
+.code pre { margin: 0; padding: 14px 16px; }
+.code code { background: none; padding: 0; color: var(--code-fg); font-size: 0.8rem; line-height: 1.5; white-space: pre; overflow-wrap: normal; }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: none; }
+td:first-child { min-width: 9rem; }
+td.st { font-weight: 600; }
+td.ok { color: var(--ok); background: var(--ok-bg); }
+td.warn { color: var(--warn); background: var(--warn-bg); }
+td.bad { color: var(--bad); background: var(--bad-bg); }
+footer { color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 560px) { .facts { grid-template-columns: 1fr; gap: 2px; } .facts dt { padding-top: 8px; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+<h1>US-06: Review pending requests in a manager inbox</h1>
+<dl class="facts"><dt>Jira</dt><dd>SCRUM-13 · Story · To Do · High · epic SCRUM-7 (Leave Management App: MVP) · SCRUM Sprint 5 (active, started 2026-11-14)</dd><dt>Code</dt><dd>PR #8 (open, found with <code>git ls-remote</code>; no <code>gh</code> CLI) · branch <code>SCRUM-13-US-06-Review-pending-requests-in-a-manager-inbox</code> · head <code>c0016ab</code> (1 commit "LMS US-06 Review pending") · base <code>827e3b4</code> (main, merge of PR #7) · 20 files (+1077, -0)</dd><dt>Written</dt><dd>2026-11-14. I read the code and the design documents. I did not build or run anything. Where I write "the owner's session ran", that result came from the owner's session, not from me.</dd></dl>
+<nav class="toc" aria-label="Sections"><a href="#what-the-story-is">What the story is</a><a href="#what-the-code-delivers">What the code delivers</a><a href="#acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</a><a href="#code-changes">Code changes</a><a href="#design-versus-code">Design versus code</a><a href="#state-of-the-tasks">State of the tasks</a><a href="#findings-and-gaps">Findings and gaps</a><a href="#why-it-is-built-this-way">Why it is built this way</a><a href="#interview-practice">Interview practice</a></nav>
+</header>
+<main>
+<h2 id="what-the-story-is">What the story is</h2>
+<p>A manager opens an inbox and sees the pending leave requests of their direct reports. Each item shows the dates, the day count, the balance after approval and who else in the team is away on the same days. The list is sorted by start date, soonest first.</p>
+<p>This story is <strong>read only</strong>. The manager cannot approve or reject here. That comes in increment 4e.</p>
+<p><strong>Why it matters:</strong> a manager can decide quickly and knows if approving would leave the team short (requirement BR-05, Must).</p>
+<p><strong>Important at this head:</strong> only part of the story is built. The branch holds the spec folder and the <strong>back end only</strong>. There is no screen. The team-overlap part (criterion 3) is a placeholder.</p>
+<h2 id="what-the-code-delivers">What the code delivers</h2>
+<div class="code"><pre><code>Approvals screen (NOT BUILT)
+  |
+  +-- GET /api/approvals?page=&amp;pageSize=   policy RequireManager
+        |   ApprovalEndpoints (reads sub, checks page and pageSize)
+        v
+      GetManagerInbox (Application)
+        |-- IDirectReportReader  -&gt; people.Employee   (the team)
+        |-- IApprovalRequestReader -&gt; leave.LeaveRequest (pending page, sorted)
+        |-- IBalanceReader (existing) -&gt; balances.*   (before and after)
+        |-- TeamOverlap (Domain)  ... written, NOT CALLED yet
+        v
+      200 { items, page, pageSize, totalCount }</code></pre></div>
+<ol><li>The endpoint <code>GET /api/approvals</code> needs the Manager role (policy <code>RequireManager</code>). A user without it gets 403. No token gets 401.</li><li>The manager id is the token's <code>sub</code> claim. The client sends no person id, so nothing can be probed or over-posted.</li><li><code>page</code> and <code>pageSize</code> are read as text and checked: <code>page</code> 1 or more, <code>pageSize</code> 1 to 100 (default 20). A bad value gives a 400 <code>ProblemDetails</code>.</li><li><code>DirectReportReader</code> reads the team from the database on every call: active people whose <code>ManagerId</code> is the caller. The manager is never in their own list.</li><li><code>ApprovalRequestReader</code> returns one page of Pending requests of those people. The order is start date, then submitted time, then id. A full order makes each page repeatable.</li><li>For balances, the use case calls the existing <code>IBalanceReader.GetLedgerAsync</code> once per person and leave year on the page. Days are deducted at submit, so <code>Available</code> is already "after". "Before" is after plus the request's days. Unpaid has no balance, so <code>balance</code> is null.</li><li>Three ports, one per module, keep modules apart: the code does not join <code>people</code>, <code>leave</code> and <code>balances</code> in one query (research R1).</li><li><code>TeamOverlap.For</code> (Domain) is a pure rule: two people overlap only on the same date and the same half-day slot. It exists, but <code>GetManagerInbox</code> does not call it. Each item gets <code>TeamSize</code> = number of reports, <code>AwayIfApproved</code> = 1, <code>Others</code> = empty.</li></ol>
+<p><strong>Example:</strong> Meera Rao (id 1, Manager) calls <code>GET /api/approvals</code>. Her reports are Asha Nair (4), Ravi Kumar (5) and Sneha Iyer (6). She gets their pending requests, earliest start first, each with <code>balance.before</code> and <code>balance.after</code>. Every item says "1 away, none named", even if Asha and Sneha are off on the same day. Asha calls the same URL and gets 403, because she is not a Manager. (Expected behaviour from the code. The endpoint was never called.)</p>
+<h2 id="acceptance-criteria-where-each-one-is-delivered">Acceptance criteria: where each one is delivered</h2>
+<div class="table"><table><thead><tr><th>Criterion (from Jira)</th><th>Delivered by</th><th>State</th></tr></thead><tbody><tr><td>1. Opening the inbox with 3 pending requests shows 3 items with dates, count, balance after approval and team overlap</td><td>Server: <code>GetManagerInbox.cs</code>, <code>ApprovalEndpoints.cs</code>. Dates, <code>DaysCount</code> and balance are in <code>ApprovalItem</code>. No screen. Overlap is a placeholder.</td><td class="st warn">Partly (data on the server only, never run)</td></tr><tr><td>2. Sorted by start date, soonest first</td><td><code>ApprovalRequestReader.GetPendingPageAsync</code> (<code>OrderBy StartDate</code>, then <code>SubmittedAtUtc</code>, then <code>Id</code>)</td><td class="st ok">Done on the server, never run</td></tr><tr><td>3. With 2 of 5 reports out for the same dates, each request shows who else is out and how many would be away</td><td><code>TeamOverlap.cs</code> has the rule. <code>GetManagerInbox.cs</code> returns <code>AwayIfApproved = 1</code> and <code>Others = []</code></td><td>Not delivered</td></tr></tbody></table></div>
+<p>The inbox screen (the thing a manager actually opens) is not found in the diff. No file under <code>web/</code> changed.</p>
+<h2 id="code-changes">Code changes</h2>
+<p><strong>Back end (<code>src/</code>)</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it does</th></tr></thead><tbody><tr><td><code>Domain/TeamOverlap.cs</code></td><td>Pure overlap rule: same date and same slot. Gives other people, their shared dates, and <code>AwayIfApproved</code> (requester counts). Not called yet.</td></tr><tr><td><code>Application/Approvals/ApprovalDtos.cs</code></td><td>Response shapes: <code>ManagerInboxResponse</code>, <code>ApprovalItem</code>, <code>BalanceBeforeAfter</code>, <code>TeamOverlapInfo</code>. No reason, no email.</td></tr><tr><td><code>Application/Approvals/IDirectReportReader.cs</code></td><td>People port: the active direct reports of a manager.</td></tr><tr><td><code>Application/Approvals/IApprovalRequestReader.cs</code></td><td>Leave port: pending page with total, and held half-day slots of a team.</td></tr><tr><td><code>Application/Approvals/GetManagerInbox.cs</code></td><td>The use case. Joins the three ports. Read only, writes no audit row. Overlap is the interim value.</td></tr><tr><td><code>Application/DependencyInjection.cs</code></td><td>Registers the use case (+1 line).</td></tr><tr><td><code>Infrastructure/Persistence/DirectReportReader.cs</code></td><td>Reads <code>people.Employee</code> only.</td></tr><tr><td><code>Infrastructure/Persistence/ApprovalRequestReader.cs</code></td><td>Reads <code>leave.*</code> only. Pending page, count, and held slots.</td></tr><tr><td><code>Infrastructure/DependencyInjection.cs</code></td><td>Registers the two readers (+3 lines).</td></tr><tr><td><code>Api/Approvals/ApprovalEndpoints.cs</code></td><td><code>GET /api/approvals</code>, policy <code>RequireManager</code>, page checks, 401 and 400 as <code>ProblemDetails</code>.</td></tr><tr><td><code>Api/Program.cs</code></td><td>Maps the endpoint (+2 lines).</td></tr></tbody></table></div>
+<p><strong>Docs and tooling</strong></p>
+<div class="table"><table><thead><tr><th>File</th><th>What it is</th></tr></thead><tbody><tr><td><code>ai/specs/us06-manager-inbox/</code> (spec, plan, research, data-model, quickstart, tasks, <code>contracts/manager-inbox-api.md</code>, <code>checklists/requirements.md</code>)</td><td>The approved spec. Read in part: I read <code>research.md</code> and <code>tasks.md</code> fully, the others not in detail.</td></tr><tr><td><code>ai/specs/INDEX.md</code></td><td>One line added for this spec.</td></tr></tbody></table></div>
+<p>There is no front-end change, no database change (no migration, no new package) and no test file.</p>
+<h2 id="design-versus-code">Design versus code</h2>
+<div class="table"><table><thead><tr><th>Point</th><th>Design says</th><th>Code does</th><th>Match?</th></tr></thead><tbody><tr><td>Path</td><td>3d: <code>GET /approvals?status=Pending&amp;page=</code></td><td><code>GET /api/approvals?page=&amp;pageSize=</code>. No <code>/v1</code>, no <code>status</code> filter: this story lists only pending (research R2)</td><td class="st warn">Differs, on purpose</td></tr><tr><td>Role</td><td>3d: role M only</td><td>Policy <code>RequireManager</code></td><td class="st ok">Yes</td></tr><tr><td>Wrong role</td><td>3d: 403 when a role never allows the endpoint</td><td>Role policy gives 403</td><td class="st ok">Yes</td></tr><tr><td>Paging</td><td>3d: <code>page</code>, <code>pageSize</code> max 100, <code>{ items, page, pageSize, totalCount }</code> (ADR 24)</td><td>Same shape, default 20, max 100, 400 on bad value</td><td class="st ok">Yes</td></tr><tr><td>Hidden rows</td><td>3d: not visible means 404 (ADR 26)</td><td class="st bad">No id in the URL, so nothing to hide. Only the caller's reports are listed</td><td class="st ok">Yes (not applicable)</td></tr><tr><td>Error codes</td><td>3d: rule failure codes in snake_case</td><td class="st bad">No business rule codes here. Only 400, 401, 403 as <code>ProblemDetails</code></td><td>Not applicable</td></tr><tr><td>Names</td><td>3d A7: managers see names</td><td>Names of the manager's own reports only</td><td class="st ok">Yes</td></tr><tr><td>Overlap in the item</td><td>3d detail has <code>teamAway</code> (names per date) and <code>allowedActions</code></td><td>Item has its own <code>teamOverlap</code> (size, away count, names with shared dates). No <code>allowedActions</code></td><td class="st warn">Differs</td></tr><tr><td>Overlap count</td><td>3a S-06 sketch "1 of 5 out" counts others only</td><td>Spec: count includes the requester ("2 of 5"). Rule is written, not wired</td><td class="st warn">Differs, on purpose. Not built at this head</td></tr><tr><td>Inbox screen S-05</td><td>3a: list, overlap text, "Approvals (3 pending)", a Review button per item</td><td class="st bad">No screen. Spec says no buttons and no pending count in the heading</td><td class="st bad">Not built. Differs on purpose</td></tr><tr><td>Empty, loading, error states</td><td>3a: loading, empty, error</td><td>Server returns an empty page. Screen states not built</td><td class="st bad">Not built</td></tr></tbody></table></div>
+<p><strong>Design documents used:</strong></p>
+<ul><li>Confluence LMA "Phase 1: Requirements Overview" (id 98443)</li><li>Confluence LMA "Leave-Policy Rules (accepted defaults)" (id 229377)</li><li>Confluence LMA "Phase 3a: UI/UX Design" (id 65835)</li><li>Confluence LMA "Phase 3d: API Design" (id 1277972)</li><li>Repo: <code>ai/specs/us06-manager-inbox/</code> (<code>research.md</code> and <code>tasks.md</code> read fully), <code>ai/steering/security.md</code></li></ul>
+<p><strong>Looked for and not found:</strong> Phase 3e class design and Phase 3f Angular design (not in the LMA space). The Confluence pages above were given to me as excerpts, not read by me.</p>
+<h2 id="state-of-the-tasks">State of the tasks</h2>
+<p>From <code>tasks.md</code> at the head:</p>
+<ul><li>Done (ticked): T001 baseline, T002 <code>TeamOverlap</code>, T003 DTOs and ports, T004 two readers, T005 use case, T006 endpoint.</li><li>Open: T007 web service, T008 web screen, T009 run scenarios A, B, F, T010 wire the overlap, T011 overlap text on the screen, T012 run scenario C, T013 prove the resource rule, T014 <code>/ci-check</code>, T015 <code>/review</code>, <code>/learn</code>, <code>/status</code>.</li></ul>
+<h2 id="findings-and-gaps">Findings and gaps</h2>
+<ul><li><strong>Jira shows To Do</strong> while PR #8 is open with part of the work. Jira and code agree in spirit (the story is not done), but the board does not show that work has started.</li><li><strong>Criterion 3 is not delivered.</strong> <code>GetManagerInbox</code> returns an interim value. A comment in the code says it is replaced in T010. A reader of the API alone would think nobody is ever away together.</li><li><strong>No screen.</strong> A manager cannot use the inbox yet. Criterion 1 is met only as JSON from an endpoint nobody has called.</li><li><strong>Jira says 5 reports</strong> in criterion 3. The seeded manager (Meera Rao) has 3 (Asha, Ravi, Sneha). Hema Shetty (HR) and Arjun Das (Admin) have no manager. The Jira example cannot be reproduced with the seed alone.</li><li><strong>Count rule:</strong> the sketch (1 of 5) and the owner's decision (2 of 5, requester counts) differ. The spec follows the owner. The 3a page was not updated.</li><li><strong>Cosmetic:</strong> the PR title and commit message "LMS US-06 Review pending" are cut short.</li><li><strong>What the owner's session ran:</strong> at the start the web checks passed (Prettier clean, 114 of 114 Vitest tests, web build). After T002 to T006 the back-end <code>dotnet build</code> gave 0 warnings and 0 errors, and both <code>dotnet format</code> checks (style, analyzers) were clean.</li><li><strong>Not run by anyone:</strong> the API itself, any call to <code>/api/approvals</code>, any web test for this screen (none exists), any .NET test (none exist, Phase 5), <code>/ci-check</code> after the change, <code>/review</code>, <code>/learn</code>.</li><li><strong>Not verified by me:</strong> everything. I read the code, I did not build or run it. I read the four code files and <code>TeamOverlap.cs</code> fully. I did not read <code>IDirectReportReader.cs</code>, <code>IApprovalRequestReader.cs</code> or the two <code>DependencyInjection.cs</code> changes in full. I only saw their diff size.</li><li><strong>Overlap edge not checked:</strong> <code>TeamOverlap.For</code> is not covered by any test. Cases in T002 (first half against second half, person with two requests) were read by the owner's session, not run.</li></ul>
+<h2 id="why-it-is-built-this-way">Why it is built this way</h2>
+<div class="table"><table><thead><tr><th>Decision</th><th>Chosen</th><th>Rejected, and why</th></tr></thead><tbody><tr><td>Reading three modules</td><td>Three read ports composed in one use case (research R1)</td><td>One join across <code>people</code>, <code>leave</code> and <code>balances</code>: fewer queries, but it breaks the module rule. A database view: hides logic from review</td></tr><tr><td>Route</td><td><code>GET /api/approvals</code> (R2)</td><td><code>/api/me/approvals</code>: "me" means own record. <code>/api/manager/inbox</code>: a new naming scheme for one screen</td></tr><tr><td>Who is the team</td><td>Active people whose <code>ManagerId</code> is the caller, read on every call (R3)</td><td>Token claim or cached list: a changed reporting line must apply at once. Whole management chain: not asked for</td></tr><tr><td>Balance figures</td><td>One ledger call per person and year; after = <code>Available</code>, before = after plus days (R4, R5)</td><td>A new batch method on <code>IBalanceReader</code>: better for big teams, add later. Recomputing from the ledger: could disagree</td></tr><tr><td>Overlap rule</td><td>Same date and same slot, from day rows (R6)</td><td>Compare date ranges: counts weekends and holidays. Compare dates only: flags first half against second half</td></tr><tr><td>Paging</td><td>Offset paging with a full sort order (R7)</td><td>Keyset paging: not needed for a team</td></tr><tr><td>Non-manager</td><td>403 from the role policy (R8)</td><td>404: hides the endpoint, but 403 is the project convention</td></tr><tr><td>Tests</td><td>Keep <code>TeamOverlap</code> pure for Phase 5, check by hand now (R11)</td><td>A test project now: that is Phase 5</td></tr></tbody></table></div>
+<h2 id="interview-practice">Interview practice</h2>
+<ol><li><strong>Q:</strong> Why three ports instead of one SQL join? <strong>A:</strong> Each module owns its tables, and code in one module does not read another's. A join would be faster but couples the modules. The use case in Application composes the three ports. A team is small, so extra calls cost little.</li><li><strong>Q:</strong> How do you stop a manager seeing someone else's team? <strong>A:</strong> Two layers. The role policy decides who may call. Inside, the team is read from the database using the token's <code>sub</code>, and the pending query is filtered on those ids. The client sends no person id.</li><li><strong>Q:</strong> Why read <code>page</code> and <code>pageSize</code> as text? <strong>A:</strong> So a bad value such as <code>abc</code> is always a clean 400 <code>ProblemDetails</code>, in every environment, instead of a binding error.</li><li><strong>Q:</strong> What does "balance after approval" mean when days are deducted at submit? <strong>A:</strong> Approving changes nothing, so "after" equals the available balance now. "Before" is after plus the request's days.</li><li><strong>Q:</strong> Why compare slots and not date ranges for overlap? <strong>A:</strong> Ranges would count weekends and holidays. Dates alone would flag a first half against a second half. Day rows exist only for working days and carry the slot.</li><li><strong>Q:</strong> Is this story done? <strong>A:</strong> No. The list endpoint with balances and sorting exists. The screen and the overlap wiring are open (T007, T008, T010, T011), and nothing was run against the API.</li></ol>
+<p><strong>Teach-back (answer in your own words):</strong></p>
+<ol><li>Why does <code>GET /api/approvals</code> return 403 for Asha and not 404? How is that different from a request id that belongs to someone else?</li><li><code>TeamOverlap</code> is written but <code>GetManagerInbox</code> does not call it. What does the endpoint return for the team overlap today, and which task fixes it?</li><li>A manager has two pending Annual requests. Why do both items show the same <code>balance.after</code>, and how does <code>balance.before</code> differ?</li></ol>
+</main>
+<footer>Generated from US-06-manager-inbox.md by US-knowledge/build-html.js. Edit the .md file, then run the script again.</footer>
+</div>
+</body>
+</html>
