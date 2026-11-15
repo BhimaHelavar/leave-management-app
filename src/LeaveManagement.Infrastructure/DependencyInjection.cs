@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<ILeaveApplicationStore, LeaveApplicationStore>();
         services.AddScoped<IDirectReportReader, DirectReportReader>();
         services.AddScoped<IApprovalRequestReader, ApprovalRequestReader>();
+        services.AddScoped<ILeaveDecisionStore, LeaveDecisionStore>();
 
         return services;
     }

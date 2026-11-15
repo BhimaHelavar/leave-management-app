@@ -5,6 +5,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { NEVER } from 'rxjs';
 import { routes } from './app.routes';
 import { LeaveRequestService } from './features/apply-leave/leave-request.service';
+import { ApprovalsService } from './features/approvals/approvals.service';
 import { BalanceService } from './features/dashboard/balance.service';
 import { authGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
@@ -23,6 +24,7 @@ async function navigate(
       // The dashboard route loads real data; these tests only check routing, so the balances load is stubbed.
       { provide: BalanceService, useValue: { getMyBalances: () => NEVER } },
       { provide: LeaveRequestService, useValue: { apply: () => NEVER } },
+      { provide: ApprovalsService, useValue: { getApprovals: () => NEVER } },
       { provide: AuthService, useValue: { roles: signal(roles), isSignedIn: signal(signedIn) } },
     ],
   });
@@ -48,11 +50,19 @@ describe('routes', () => {
   });
 
   it('opens a section the person may see and shows its placeholder', async () => {
+    const result = await navigate('/reports', ['Employee', 'HR']);
+
+    expect(result.url).toBe('/reports');
+    expect(result.text).toContain('Reports');
+    expect(result.text).toContain('Coming soon');
+  });
+
+  it('opens the manager inbox for a manager', async () => {
     const result = await navigate('/approvals', ['Employee', 'Manager']);
 
     expect(result.url).toBe('/approvals');
-    expect(result.text).toContain('Approvals');
-    expect(result.text).toContain('Coming soon');
+    expect(result.text).toContain('Requests waiting for you');
+    expect(result.text).not.toContain('Coming soon');
   });
 
   it('opens the Apply for leave screen for a signed-in person', async () => {

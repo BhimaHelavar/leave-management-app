@@ -38,6 +38,12 @@ public sealed class GetManagerInbox(
             ledgers[key] = await balances.GetLedgerAsync(key.EmployeeId, key.Year, today, ct);
         }
 
+        // One read of the team's held slots for the dates on this page, not one per request.
+        IReadOnlyList<HeldSlot> held = pending.Rows.Count == 0
+            ? []
+            : await requests.GetHeldSlotsAsync(
+                teamIds, pending.Rows.Min(r => r.StartDate), pending.Rows.Max(r => r.EndDate), ct);
+
         var items = new List<ApprovalItem>(pending.Rows.Count);
         foreach (var row in pending.Rows)
         {
@@ -51,16 +57,20 @@ public sealed class GetManagerInbox(
                 : new LeaveTypeRef(ledger.LeaveTypeId, ledger.Code, ledger.Name);
 
             // Days are deducted at submit, so Available is already net of this request: that is the "after"
-            // figure, and "before" adds this request's days back. Unpaid has no balance.
+            // figure, and "before" adds this request's days back. No balance row (Unpaid, or no row for that
+            // person and leave year) means no figures, not zero.
             BalanceBeforeAfter? balance = null;
-            if (ledger is not null && !(ledger.Available is null && ledger.AccrualMode == AccrualMode.None))
+            if (ledger?.Available is { } after)
             {
-                var after = ledger.Available ?? 0m;
                 balance = new BalanceBeforeAfter(after + row.DaysCount, after);
             }
 
-            // Interim until the overlap is wired in (tasks T010): no one else is shown, the requester counts.
-            var overlap = new TeamOverlapInfo(team.Count, 1, []);
+            // Who else is away on the same slots, and how many would be away if this is approved (the requester counts).
+            var shared = TeamOverlap.For(row.RequestId, row.EmployeeId, held);
+            var overlap = new TeamOverlapInfo(
+                team.Count,
+                shared.AwayIfApproved,
+                shared.Others.Select(o => new OverlapPerson(o.EmployeeId, names[o.EmployeeId], o.Dates)).ToList());
 
             items.Add(new ApprovalItem(
                 row.RequestId,

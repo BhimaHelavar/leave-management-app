@@ -9,6 +9,7 @@ public static class ApprovalEndpoints
 {
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
+    private const int MaxPage = 100000; // keeps (page - 1) * pageSize far inside int range
 
     /// <summary>
     /// The manager inbox. Two layers (security rule 3): the Manager role policy decides who may call it, and the
@@ -29,9 +30,9 @@ public static class ApprovalEndpoints
                 }
 
                 // Read as text so a bad value is always a clean 400, in every environment.
-                if (!TryReadInt(http.Query["page"].ToString(), 1, out var page) || page < 1)
+                if (!TryReadInt(http.Query["page"].ToString(), 1, out var page) || page < 1 || page > MaxPage)
                 {
-                    return BadRequest("page must be a whole number, 1 or more.");
+                    return BadRequest($"page must be a whole number from 1 to {MaxPage}.");
                 }
 
                 if (!TryReadInt(http.Query["pageSize"].ToString(), DefaultPageSize, out var pageSize)
