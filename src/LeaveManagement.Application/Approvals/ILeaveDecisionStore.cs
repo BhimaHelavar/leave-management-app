@@ -1,3 +1,4 @@
+using LeaveManagement.Application.Leave;
 using LeaveManagement.Domain;
 
 namespace LeaveManagement.Application.Approvals;
@@ -20,12 +21,7 @@ public sealed record DecisionResult(bool Succeeded, string? RefusalCode)
 {
     public static DecisionResult Success() => new(true, null);
 
-    public static DecisionResult NotPending() => new(false, DecisionRefusalCodes.NotPending);
-}
-
-public static class DecisionRefusalCodes
-{
-    public const string NotPending = "request.not_pending";
+    public static DecisionResult NotPending() => new(false, LeaveRuleCodes.RequestNotPending);
 }
 
 /// <summary>
