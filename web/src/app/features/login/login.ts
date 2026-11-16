@@ -1,8 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
 import { DevUser } from '../../auth/models';
+import { RETURN_URL_PARAM, safeReturnUrl } from '../../auth/return-url';
 
 type LoadState = 'loading' | 'ready' | 'failed';
 
@@ -16,6 +17,7 @@ type LoadState = 'loading' | 'ready' | 'failed';
 export class Login {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly state = signal<LoadState>('loading');
   protected readonly people = signal<DevUser[]>([]);
@@ -42,7 +44,9 @@ export class Login {
     const ok = await this.auth.signInAs(person.id);
     this.busy.set(false);
     if (ok) {
-      await this.router.navigateByUrl('/dashboard');
+      await this.router.navigateByUrl(
+        safeReturnUrl(this.route.snapshot.queryParamMap.get(RETURN_URL_PARAM)),
+      );
     } else {
       this.signInFailed.set(true);
     }

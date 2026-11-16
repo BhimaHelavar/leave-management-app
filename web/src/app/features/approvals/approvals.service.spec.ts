@@ -2,7 +2,7 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_URL } from '../../api-config';
-import { ApprovalsService, ManagerInbox } from './approvals.service';
+import { ApprovalDetail, ApprovalsService, ManagerInbox } from './approvals.service';
 
 const API = 'http://api.test';
 
@@ -63,6 +63,85 @@ describe('ApprovalsService', () => {
 
     http
       .expectOne((r) => r.url === `${API}/api/approvals`)
+      .flush({ title: 'Refused' }, { status, statusText: 'Refused' });
+
+    expect(error?.status).toBe(status);
+    http.verify();
+  });
+
+  const detail: ApprovalDetail = {
+    requestId: 35,
+    status: 'Pending',
+    employee: { id: 6, name: 'Sneha Iyer' },
+    leaveType: { id: 1, code: 'ANNUAL', name: 'Annual leave' },
+    startDate: '2026-12-01',
+    endDate: '2026-12-02',
+    halfDay: 'None',
+    daysCount: 2,
+    submittedAtUtc: '2026-11-14T11:51:50Z',
+    balance: { before: 8, after: 6 },
+    teamOverlap: { teamSize: 3, awayIfApproved: 1, others: [] },
+    decision: null,
+    allowedActions: ['approve', 'reject'],
+  };
+
+  it('gets one request', () => {
+    const { service, http } = setup();
+
+    let result: ApprovalDetail | undefined;
+    service.getApproval(35).subscribe((value) => (result = value));
+
+    const req = http.expectOne(`${API}/api/approvals/35`);
+    expect(req.request.method).toBe('GET');
+    req.flush(detail);
+
+    expect(result).toEqual(detail);
+    http.verify();
+  });
+
+  it('posts an approval with the comment', () => {
+    const { service, http } = setup();
+
+    service.approve(35, 'Enjoy').subscribe();
+
+    const req = http.expectOne(`${API}/api/approvals/35/approve`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ comment: 'Enjoy' });
+    req.flush(detail);
+    http.verify();
+  });
+
+  it('posts an approval with no comment as null', () => {
+    const { service, http } = setup();
+
+    service.approve(35, null).subscribe();
+
+    const req = http.expectOne(`${API}/api/approvals/35/approve`);
+    expect(req.request.body).toEqual({ comment: null });
+    req.flush(detail);
+    http.verify();
+  });
+
+  it('posts a rejection with the comment', () => {
+    const { service, http } = setup();
+
+    service.reject(35, 'Please move it').subscribe();
+
+    const req = http.expectOne(`${API}/api/approvals/35/reject`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ comment: 'Please move it' });
+    req.flush(detail);
+    http.verify();
+  });
+
+  it.each([404, 409, 422])('passes a %s on a decision on as an error', (status) => {
+    const { service, http } = setup();
+
+    let error: HttpErrorResponse | undefined;
+    service.reject(35, 'x').subscribe({ error: (e: HttpErrorResponse) => (error = e) });
+
+    http
+      .expectOne(`${API}/api/approvals/35/reject`)
       .flush({ title: 'Refused' }, { status, statusText: 'Refused' });
 
     expect(error?.status).toBe(status);

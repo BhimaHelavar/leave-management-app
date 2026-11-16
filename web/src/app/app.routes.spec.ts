@@ -24,7 +24,10 @@ async function navigate(
       // The dashboard route loads real data; these tests only check routing, so the balances load is stubbed.
       { provide: BalanceService, useValue: { getMyBalances: () => NEVER } },
       { provide: LeaveRequestService, useValue: { apply: () => NEVER } },
-      { provide: ApprovalsService, useValue: { getApprovals: () => NEVER } },
+      {
+        provide: ApprovalsService,
+        useValue: { getApprovals: () => NEVER, getApproval: () => NEVER },
+      },
       { provide: AuthService, useValue: { roles: signal(roles), isSignedIn: signal(signedIn) } },
     ],
   });
@@ -65,6 +68,25 @@ describe('routes', () => {
     expect(result.text).not.toContain('Coming soon');
   });
 
+  it('opens a request page for a manager', async () => {
+    const result = await navigate('/approvals/42', ['Employee', 'Manager']);
+
+    expect(result.url).toBe('/approvals/42');
+    expect(result.text).toContain('Request');
+  });
+
+  it('sends an employee who opens a request page to the not-found view', async () => {
+    const result = await navigate('/approvals/42', ['Employee']);
+
+    expect(result.url).toBe('/not-found');
+  });
+
+  it('sends a signed-out visit to a request page to sign-in with the wanted address', async () => {
+    const result = await navigate('/approvals/42', [], false);
+
+    expect(result.url).toBe('/login?returnUrl=%2Fapprovals%2F42');
+  });
+
   it('opens the Apply for leave screen for a signed-in person', async () => {
     const result = await navigate('/apply-leave', ['Employee']);
 
@@ -76,7 +98,7 @@ describe('routes', () => {
   it('sends a signed-out person to the sign-in screen', async () => {
     const result = await navigate('/dashboard', [], false);
 
-    expect(result.url).toBe('/login');
+    expect(result.url).toBe('/login?returnUrl=%2Fdashboard');
   });
 
   it('sends a person without the role to the not-found view', async () => {

@@ -50,12 +50,11 @@ public static class ApprovalEndpoints
             .RequireAuthorization(Policies.RequireManager)
             .WithName("ManagerInbox");
 
-        // The manager is the token's sub. The body carries only the comment: no person id, status or time is read.
-        app.MapPost("/api/approvals/{requestId:int}/reject", async (
+        // The detail answers 404 for a missing request and for one the caller may not see, so ids cannot be probed.
+        app.MapGet("/api/approvals/{requestId:int}", async (
                 int requestId,
                 ClaimsPrincipal user,
-                HttpRequest http,
-                DecideLeaveRequest useCase,
+                GetApprovalDetail useCase,
                 CancellationToken ct) =>
             {
                 if (!int.TryParse(user.FindFirstValue("sub"), out var managerId))
@@ -63,19 +62,60 @@ public static class ApprovalEndpoints
                     return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Unauthorized");
                 }
 
-                var body = await ReadCommentAsync(http, ct);
-                if (!body.Valid)
-                {
-                    return BadRequest(
-                        $"The body must be JSON with an optional text comment of at most {LeaveDecision.MaxCommentLength} characters.");
-                }
-
-                return ToResult(await useCase.ExecuteAsync(managerId, requestId, DecisionOutcome.Reject, body.Comment, ct));
+                var detail = await useCase.ExecuteAsync(managerId, requestId, ct);
+                return detail is null
+                    ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Not found")
+                    : Results.Ok(detail);
             })
+            .RequireAuthorization(Policies.RequireManager)
+            .WithName("GetApprovalDetail");
+
+        // The manager is the token's sub. The body carries only the comment: no person id, status or time is read.
+        app.MapPost("/api/approvals/{requestId:int}/reject", (
+                int requestId,
+                ClaimsPrincipal user,
+                HttpRequest http,
+                DecideLeaveRequest useCase,
+                CancellationToken ct) =>
+                DecideAsync(requestId, DecisionOutcome.Reject, user, http, useCase, ct))
             .RequireAuthorization(Policies.RequireManager)
             .WithName("RejectLeaveRequest");
 
+        // The body is optional for an approval: no body means no comment.
+        app.MapPost("/api/approvals/{requestId:int}/approve", (
+                int requestId,
+                ClaimsPrincipal user,
+                HttpRequest http,
+                DecideLeaveRequest useCase,
+                CancellationToken ct) =>
+                DecideAsync(requestId, DecisionOutcome.Approve, user, http, useCase, ct))
+            .RequireAuthorization(Policies.RequireManager)
+            .WithName("ApproveLeaveRequest");
+
         return app;
+    }
+
+    private static async Task<IResult> DecideAsync(
+        int requestId,
+        DecisionOutcome outcome,
+        ClaimsPrincipal user,
+        HttpRequest http,
+        DecideLeaveRequest useCase,
+        CancellationToken ct)
+    {
+        if (!int.TryParse(user.FindFirstValue("sub"), out var managerId))
+        {
+            return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Unauthorized");
+        }
+
+        var body = await ReadCommentAsync(http, ct);
+        if (!body.Valid)
+        {
+            return BadRequest(
+                $"The body must be JSON with an optional text comment of at most {LeaveDecision.MaxCommentLength} characters.");
+        }
+
+        return ToResult(await useCase.ExecuteAsync(managerId, requestId, outcome, body.Comment, ct));
     }
 
     /// <summary>

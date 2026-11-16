@@ -60,7 +60,36 @@ export interface ManagerInbox {
   totalCount: number;
 }
 
-/** Typed access to GET /api/approvals. The server decides which requests a manager may see. */
+export type RequestStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
+
+export type AllowedAction = 'approve' | 'reject';
+
+/** Present once a request is decided. The comment is user text: show it with interpolation only. */
+export interface DecisionInfo {
+  outcome: string;
+  decidedAtUtc: string;
+  comment: string | null;
+}
+
+/** One request (contracts/decision-api.md). `balance` and `teamOverlap` are null once decided. */
+export interface ApprovalDetail {
+  requestId: number;
+  status: RequestStatus;
+  employee: PersonRef;
+  leaveType: LeaveTypeRef;
+  startDate: string;
+  endDate: string;
+  halfDay: HalfDay;
+  daysCount: number;
+  submittedAtUtc: string;
+  balance: BalanceBeforeAfter | null;
+  teamOverlap: TeamOverlapInfo | null;
+  decision: DecisionInfo | null;
+  /** The server says which buttons exist; the screen copies no rule. */
+  allowedActions: AllowedAction[];
+}
+
+/** Typed access to /api/approvals. The server decides which requests a manager may see or decide. */
 @Injectable({ providedIn: 'root' })
 export class ApprovalsService {
   private readonly http = inject(HttpClient);
@@ -69,6 +98,22 @@ export class ApprovalsService {
   getApprovals(page: number, pageSize: number): Observable<ManagerInbox> {
     return this.http.get<ManagerInbox>(`${this.apiUrl}/api/approvals`, {
       params: { page: String(page), pageSize: String(pageSize) },
+    });
+  }
+
+  getApproval(requestId: number): Observable<ApprovalDetail> {
+    return this.http.get<ApprovalDetail>(`${this.apiUrl}/api/approvals/${requestId}`);
+  }
+
+  approve(requestId: number, comment: string | null): Observable<ApprovalDetail> {
+    return this.http.post<ApprovalDetail>(`${this.apiUrl}/api/approvals/${requestId}/approve`, {
+      comment,
+    });
+  }
+
+  reject(requestId: number, comment: string): Observable<ApprovalDetail> {
+    return this.http.post<ApprovalDetail>(`${this.apiUrl}/api/approvals/${requestId}/reject`, {
+      comment,
     });
   }
 }

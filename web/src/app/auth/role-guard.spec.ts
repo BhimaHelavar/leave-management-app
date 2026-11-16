@@ -11,11 +11,18 @@ import { AuthService } from './auth.service';
 import { Role } from './models';
 import { roleGuard } from './role-guard';
 
-function run(path: string | undefined, roles: readonly Role[]): boolean | UrlTree {
+function run(
+  path: string | undefined,
+  roles: readonly Role[],
+  navPath?: string,
+): boolean | UrlTree {
   TestBed.configureTestingModule({
     providers: [provideRouter([]), { provide: AuthService, useValue: { roles: signal(roles) } }],
   });
-  const route = { routeConfig: path === undefined ? null : { path } } as ActivatedRouteSnapshot;
+  const route = {
+    routeConfig: path === undefined ? null : { path },
+    data: navPath ? { navPath } : {},
+  } as unknown as ActivatedRouteSnapshot;
   return TestBed.runInInjectionContext(() => roleGuard(route, {} as RouterStateSnapshot)) as
     boolean | UrlTree;
 }
@@ -40,6 +47,14 @@ describe('roleGuard', () => {
 
   it('blocks a route that is not in the navigation table', () => {
     expect(run('secret', ['Employee', 'Admin'])).toBeInstanceOf(UrlTree);
+  });
+
+  it('lets a child route use the roles of the navigation entry it names', () => {
+    expect(run('approvals/:requestId', ['Manager'], 'approvals')).toBe(true);
+  });
+
+  it('blocks a child route when the person lacks the roles of the entry it names', () => {
+    expect(run('approvals/:requestId', ['Employee'], 'approvals')).toBeInstanceOf(UrlTree);
   });
 
   it('blocks a route that has no path', () => {

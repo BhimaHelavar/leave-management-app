@@ -14,6 +14,8 @@ export const NOT_FOUND_PATH = '/not-found';
 export const roleGuard: CanActivateFn = (route) => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  const path = route.routeConfig?.path ?? '';
+  // A child page such as approvals/:requestId names the navigation entry it belongs to.
+  const navPath = route.data?.['navPath'];
+  const path = typeof navPath === 'string' ? navPath : (route.routeConfig?.path ?? '');
   return canOpen(path, auth.roles()) ? true : router.parseUrl(NOT_FOUND_PATH);
 };

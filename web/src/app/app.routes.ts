@@ -10,6 +10,8 @@ const loadLogin = () => import('./features/login/login').then((m) => m.Login);
 const loadDashboard = () => import('./features/dashboard/dashboard').then((m) => m.Dashboard);
 const loadApplyLeave = () => import('./features/apply-leave/apply-leave').then((m) => m.ApplyLeave);
 const loadApprovals = () => import('./features/approvals/approvals').then((m) => m.Approvals);
+const loadApprovalDetail = () =>
+  import('./features/approvals/approval-detail').then((m) => m.ApprovalDetailPage);
 
 /** The screen each navigation path opens. Paths not built yet open the placeholder. */
 // Built so far: dashboard, apply-leave and approvals.
@@ -40,6 +42,13 @@ export const routes: Routes = [
     data: { title: item.label },
     loadComponent: loaderFor(item.path),
   })),
+  {
+    // The request page and its deep link. It borrows the Approvals roles (Manager) from the navigation table.
+    path: 'approvals/:requestId',
+    canActivate: [authGuard, roleGuard],
+    data: { navPath: 'approvals', title: 'Request' },
+    loadComponent: loadApprovalDetail,
+  },
   { path: 'not-found', loadComponent: loadNotFound },
   { path: '**', loadComponent: loadNotFound },
 ];
