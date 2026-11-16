@@ -16,18 +16,33 @@ internal sealed class ApprovalRequestReader(LeaveDbContext db) : IApprovalReques
 
         var total = await pending.CountAsync(ct);
 
+        // Work in long so a huge page cannot overflow; the endpoint also caps page.
+        var skip = (int)Math.Min((long)(page - 1) * pageSize, int.MaxValue);
+
         // A full order (start date, submitted time, id) makes every page repeatable.
         var rows = await pending
             .OrderBy(r => r.StartDate)
             .ThenBy(r => r.SubmittedAtUtc)
             .ThenBy(r => r.Id)
-            .Skip((page - 1) * pageSize)
+            .Skip(skip)
             .Take(pageSize)
             .Select(r => new PendingRequestRow(
                 r.Id, r.EmployeeId, r.LeaveTypeId, r.StartDate, r.EndDate, r.HalfDay, r.DaysCount, r.SubmittedAtUtc))
             .ToListAsync(ct);
 
         return new PendingRequestPage(rows, total);
+    }
+
+    public async Task<RequestDetailRow?> GetByIdAsync(int requestId, CancellationToken ct)
+    {
+        // Any status on purpose: the decision use case tells "not pending" (409) from "not found" (404).
+        return await db.LeaveRequests
+            .AsNoTracking()
+            .Where(r => r.Id == requestId)
+            .Select(r => new RequestDetailRow(
+                r.Id, r.EmployeeId, r.LeaveTypeId, r.StartDate, r.EndDate, r.HalfDay, r.DaysCount,
+                r.SubmittedAtUtc, r.Status, r.DecidedByEmployeeId, r.DecidedAtUtc, r.DecisionComment))
+            .FirstOrDefaultAsync(ct);
     }
 
     public async Task<IReadOnlyList<HeldSlot>> GetHeldSlotsAsync(

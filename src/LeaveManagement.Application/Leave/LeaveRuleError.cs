@@ -19,6 +19,8 @@ public static class LeaveRuleCodes
     public const string Overlap = "leave.overlap";
     public const string BalanceInsufficient = "balance.insufficient";
     public const string IdempotencyMismatch = "idempotency.mismatch";
+    public const string CommentRequired = "comment.required";
+    public const string RequestNotPending = "request.not_pending";
 }
 
 /// <summary>Builds each refusal with the exact wording from the contract. {n} comes from the leave type.</summary>
@@ -74,4 +76,10 @@ public static class LeaveRuleErrors
 
     public static LeaveRuleError IdempotencyMismatch() =>
         new(LeaveRuleCodes.IdempotencyMismatch, "This request key was already used for a different request.");
+
+    public static LeaveRuleError CommentRequired() =>
+        new(LeaveRuleCodes.CommentRequired, "A rejection needs a comment that tells the employee why.");
+
+    public static LeaveRuleError RequestNotPending() =>
+        new(LeaveRuleCodes.RequestNotPending, "This request has already been decided.");
 }

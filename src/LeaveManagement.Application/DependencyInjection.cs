@@ -15,7 +15,10 @@ public static class DependencyInjection
         services.AddScoped<Leave.LeavePlanner>();
         services.AddScoped<Leave.ApplyForLeave>();
         services.AddScoped<Leave.PreviewWorkingDays>();
+        services.AddScoped<Approvals.ApprovalItemBuilder>();
         services.AddScoped<Approvals.GetManagerInbox>();
+        services.AddScoped<Approvals.GetApprovalDetail>();
+        services.AddScoped<Approvals.DecideLeaveRequest>();
         return services;
     }
 }

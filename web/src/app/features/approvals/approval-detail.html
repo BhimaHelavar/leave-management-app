@@ -1,0 +1,90 @@
+<section class="detail" aria-labelledby="detail-title">
+  <h1 id="detail-title">Request</h1>
+
+  @if (loading()) {
+    <p role="status">Loading request...</p>
+  } @else if (loadFailed()) {
+    <div class="error" role="alert">
+      <p>The request could not be loaded.</p>
+      <button type="button" (click)="load()">Try again</button>
+    </div>
+  } @else if (detail(); as item) {
+    <h2>{{ item.employee.name }}</h2>
+    <p class="what">
+      {{ item.leaveType.name }}, {{ dates(item) }}
+      @if (halfDayLabel(item.halfDay); as half) {
+        ({{ half }})
+      }
+    </p>
+    <dl>
+      <div>
+        <dt>Status</dt>
+        <dd>{{ item.status }}</dd>
+      </div>
+      <div>
+        <dt>Days</dt>
+        <dd>{{ item.daysCount | number: '1.1-1' }}</dd>
+      </div>
+      @if (item.balance; as balance) {
+        <div>
+          <dt>Balance</dt>
+          <dd>
+            Before {{ balance.before | number: '1.1-1' }}, after
+            {{ balance.after | number: '1.1-1' }}
+          </dd>
+        </div>
+      }
+      @if (item.decision; as decision) {
+        <div>
+          <dt>Decided</dt>
+          <dd>{{ decision.outcome }} on {{ decision.decidedAtUtc.slice(0, 10) }}</dd>
+        </div>
+        @if (decision.comment) {
+          <div>
+            <dt>Comment</dt>
+            <dd class="comment">{{ decision.comment }}</dd>
+          </div>
+        }
+      }
+    </dl>
+    @if (overlapText(item); as overlap) {
+      <p class="overlap">{{ overlap }}</p>
+    }
+
+    @if (message(); as text) {
+      <p class="refusal" role="alert">{{ text }}</p>
+    }
+
+    @if (rejecting() && canReject()) {
+      <div class="reject">
+        <label for="reject-comment">Comment for the employee (required)</label>
+        <textarea
+          #box
+          id="reject-comment"
+          rows="4"
+          [attr.maxlength]="maxLength"
+          [value]="comment()"
+          (input)="setComment(box.value)"
+        ></textarea>
+        @if (commentMissing()) {
+          <p class="field-error" role="alert">Please write a comment</p>
+        }
+        <div class="actions">
+          <button type="button" (click)="sendRejection()" [disabled]="busy()">
+            Send rejection
+          </button>
+          <button type="button" (click)="cancelReject()" [disabled]="busy()">Cancel</button>
+        </div>
+      </div>
+    } @else if (canApprove() || canReject()) {
+      <div class="actions">
+        @if (canApprove()) {
+          <button type="button" (click)="approve()" [disabled]="busy()">Approve</button>
+        }
+        @if (canReject()) {
+          <button type="button" (click)="startReject()" [disabled]="busy()">Reject</button>
+        }
+      </div>
+    }
+  }
+</section>

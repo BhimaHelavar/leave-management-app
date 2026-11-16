@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
 import { DevUser } from '../../auth/models';
 import { Login } from './login';
@@ -9,10 +9,19 @@ const PEOPLE: DevUser[] = [
   { id: 2, fullName: 'Hema Shetty', email: 'hema.shetty@example.test', roles: ['Employee', 'HR'] },
 ];
 
-async function setup(auth: Partial<AuthService>) {
+async function setup(auth: Partial<AuthService>, returnUrl: string | null = null) {
   TestBed.configureTestingModule({
     imports: [Login],
-    providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
+    providers: [
+      provideRouter([]),
+      { provide: AuthService, useValue: auth },
+      {
+        provide: ActivatedRoute,
+        useValue: {
+          snapshot: { queryParamMap: convertToParamMap(returnUrl ? { returnUrl } : {}) },
+        },
+      },
+    ],
   });
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
   const fixture: ComponentFixture<Login> = TestBed.createComponent(Login);
@@ -47,6 +56,33 @@ describe('Login', () => {
     expect(signInAs).toHaveBeenCalledWith(1);
     expect(navigate).toHaveBeenCalledWith('/dashboard');
   });
+
+  it('returns to a safe wanted address after sign-in', async () => {
+    const { fixture, root, navigate } = await setup(
+      { devUsers: () => Promise.resolve(PEOPLE), signInAs: vi.fn().mockResolvedValue(true) },
+      '/approvals/42',
+    );
+
+    (root.querySelector('ul.people button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(navigate).toHaveBeenCalledWith('/approvals/42');
+  });
+
+  it.each(['//example.com', 'https://example.com', '/\\evil', 'javascript:alert(1)'])(
+    'opens the dashboard when the wanted address is %s',
+    async (wanted) => {
+      const { fixture, root, navigate } = await setup(
+        { devUsers: () => Promise.resolve(PEOPLE), signInAs: vi.fn().mockResolvedValue(true) },
+        wanted,
+      );
+
+      (root.querySelector('ul.people button') as HTMLButtonElement).click();
+      await fixture.whenStable();
+
+      expect(navigate).toHaveBeenCalledWith('/dashboard');
+    },
+  );
 
   it('shows an error and stays on the page when sign-in is refused', async () => {
     const signInAs = vi.fn().mockResolvedValue(false);

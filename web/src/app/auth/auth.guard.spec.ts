@@ -9,7 +9,7 @@ import {
 import { authGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 
-function run(signedIn: boolean): boolean | UrlTree {
+function run(signedIn: boolean, url = '/'): boolean | UrlTree {
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
@@ -17,7 +17,7 @@ function run(signedIn: boolean): boolean | UrlTree {
     ],
   });
   return TestBed.runInInjectionContext(() =>
-    authGuard({} as ActivatedRouteSnapshot, {} as RouterStateSnapshot),
+    authGuard({} as ActivatedRouteSnapshot, { url } as RouterStateSnapshot),
   ) as boolean | UrlTree;
 }
 
@@ -31,5 +31,11 @@ describe('authGuard', () => {
 
     expect(result instanceof UrlTree).toBe(true);
     expect((result as UrlTree).toString()).toBe('/login');
+  });
+
+  it('keeps the wanted address for after sign-in', () => {
+    const result = run(false, '/approvals/42');
+
+    expect((result as UrlTree).toString()).toBe('/login?returnUrl=%2Fapprovals%2F42');
   });
 });
