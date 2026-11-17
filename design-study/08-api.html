@@ -1,0 +1,99 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>API design · LMS Design Study</title><meta name="description" content="REST conventions, endpoints, errors, idempotency, ETag, paging, versioning">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html" class="cur">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>API design</h1>
+<p class="lead">An API is a <b>contract</b>: send this, get that, including when things go wrong. Design it so a client cannot misuse it and an attacker learns nothing.</p>
+
+<h2>The ten LMS conventions</h2>
+<table><tr><th>#</th><th>Rule</th><th>Why</th></tr>
+<tr><td>1</td><td>Version in the path: <code>/api/v1/...</code></td><td>Visible, testable; breaking change = v2</td></tr>
+<tr><td>2</td><td>Plural nouns, kebab-case: <code>/leave-requests</code></td><td>Predictable</td></tr>
+<tr><td>3</td><td>State changes are action sub-resources: <code>POST /leave-requests/{id}/approve</code></td><td>A status change has rules, balance effects, audit and email; it is not a field edit</td></tr>
+<tr><td>4</td><td>camelCase JSON, enums as strings</td><td>Readable</td></tr>
+<tr><td>5</td><td>Leave day <code>"2026-11-10"</code>; moment UTC <code>"2026-10-19T14:52:00Z"</code></td><td>A day is not a moment</td></tr>
+<tr><td>6</td><td>Caller comes from the token, never the body</td><td>No impersonation</td></tr>
+<tr><td>7</td><td><code>Authorization: Bearer &lt;JWT&gt;</code></td><td>Same shape in Dev and Entra mode</td></tr>
+<tr><td>8</td><td>Lists: <code>?page=&amp;pageSize=</code> (max 100) → <code>{items,page,pageSize,totalCount}</code></td><td>Protects the server</td></tr>
+<tr><td>9</td><td><code>Idempotency-Key</code> on creating POSTs</td><td>Double-click safe</td></tr>
+<tr><td>10</td><td><code>ETag</code> on reads, <code>If-Match</code> on decisions</td><td>Two managers cannot both decide on version 5</td></tr></table>
+
+<h2>Endpoints (32 in six groups; a sample)</h2>
+<table><tr><th>Call</th><th>Who</th><th>Does</th><th>Success</th></tr>
+<tr><td><code>GET /me</code></td><td>all</td><td>Profile, roles, manager</td><td>200</td></tr>
+<tr><td><code>GET /me/balances?year=</code></td><td>all</td><td>Available per type (granted, used, held, available)</td><td>200</td></tr>
+<tr><td><code>POST /leave-requests/preview</code></td><td>E</td><td>Count days, show balance after; no save</td><td>200</td></tr>
+<tr><td><code>POST /leave-requests</code></td><td>E</td><td>Submit; holds days; needs Idempotency-Key</td><td>201</td></tr>
+<tr><td><code>GET /leave-requests</code></td><td>E</td><td>My requests</td><td>200</td></tr>
+<tr><td><code>POST /leave-requests/{id}/cancel</code></td><td>owner; HR after start</td><td>Cancel, restore days; If-Match</td><td>200</td></tr>
+<tr><td><code>GET /approvals?status=Pending</code></td><td>M</td><td>Direct reports' pending requests</td><td>200</td></tr>
+<tr><td><code>POST /leave-requests/{id}/approve | /reject</code></td><td>M; H on behalf</td><td>Decide; reject needs comment; If-Match</td><td>200</td></tr>
+<tr><td><code>GET /team/calendar?from=&amp;to=</code></td><td>M</td><td>Who is away</td><td>200</td></tr>
+<tr><td><code>POST /hr/balance-adjustments</code></td><td>H</td><td>Grant/correct days via ledger</td><td>201</td></tr>
+<tr><td><code>GET /hr/reports/leave-summary?format=csv</code></td><td>H</td><td>Totals, CSV</td><td>200</td></tr>
+<tr><td><code>PUT /admin/leave-types/{id}</code></td><td>A</td><td>Change rule; old requests keep DaysCount</td><td>200</td></tr>
+<tr><td><code>GET /admin/audit-events</code></td><td>A, H</td><td>Read audit trail</td><td>200</td></tr>
+<tr><td><code>GET /health/live | /health/ready</code></td><td>none</td><td>Process up | database answers</td><td>200</td></tr></table>
+<p class="callout warn"><b>Status:</b> this is the design contract (3d). The repo today has sign-in, balances, apply/preview, inbox and approval endpoints in various stages; paths in code may differ (for example <code>/api/me</code> vs <code>/api/v1/me</code>). Check <code>ai/specs</code> for what exists.</p>
+
+<h2>Walk through one call</h2>
+<pre data-lang="http"><code>POST /api/v1/leave-requests
+Authorization: Bearer eyJ...
+Idempotency-Key: 6f1c2d9a-3b7e-4c1a-9d52-0a8e41b7c9f3
+{ "leaveTypeId": 1, "startDate": "2026-11-09", "endDate": "2026-11-13", "halfDay": "None", "reason": "Family function" }
+
+201 Created
+Location: /api/v1/leave-requests/101
+ETag: "AAAAAAAAB9E="
+{ "id": 101, "status": "Pending", "daysCount": 4.0, "availableAfter": 14.0, ... }</code></pre>
+<p>The body has <b>no</b> <code>employeeId</code>, <code>status</code> or <code>daysCount</code>: the server decides. A repeat with the same key and body returns the same 201; same key, different body returns 422 <code>idempotency_key_reused</code>.</p>
+
+<h2>Status codes: the shared language</h2>
+<table><tr><th>Code</th><th>Meaning</th><th><code>code</code> examples</th></tr>
+<tr><td>400</td><td>Bad shape</td><td><code>validation_failed</code></td></tr>
+<tr><td>401</td><td>I do not know who you are</td><td><code>unauthenticated</code></td></tr>
+<tr><td>403</td><td>I know you; role never allows this</td><td><code>forbidden</code></td></tr>
+<tr><td>404</td><td>Missing, or you may not see it</td><td><code>not_found</code></td></tr>
+<tr><td>409</td><td>Clashes with current state</td><td><code>leave_overlap</code>, <code>invalid_status</code>, <code>stale_version</code></td></tr>
+<tr><td>422</td><td>A business rule refuses; retry never helps</td><td><code>insufficient_balance</code>, <code>notice_too_short</code>, <code>probation_block</code>, <code>max_days_exceeded</code>, <code>certificate_required</code>, <code>year_end_span</code>, <code>comment_required</code></td></tr>
+<tr><td>428</td><td>Required header missing</td><td><code>precondition_required</code></td></tr>
+<tr><td>429</td><td>Too many calls</td><td><code>rate_limited</code></td></tr>
+<tr><td>500</td><td>Our bug (body hides details)</td><td><code>unexpected</code></td></tr>
+<tr><td>503</td><td>Database unreachable</td><td><code>unavailable</code></td></tr></table>
+<div class="sim"><h4>Pick the status code</h4><div class="row"><select id="sc"><option value="0">Employee calls /admin/holidays</option><option value="1">Employee opens another person's request id 102</option><option value="2">Submit dates that overlap existing leave</option><option value="3">Reject without a comment</option><option value="4">Token expired</option><option value="5">Two managers; second uses an old ETag</option><option value="6">Submit without Idempotency-Key</option></select></div><div class="out" id="sc-out"></div></div>
+<script>
+(function(){const a=['<b>403 forbidden</b>: the role never allows this endpoint. (The user is known.)','<b>404 not_found</b>: not visible is 404 so ids cannot be probed. 403 would confirm the id exists.','<b>409 leave_overlap</b>: valid request that clashes with current data.','<b>422 comment_required</b>: the request itself breaks a rule.','<b>401 unauthenticated</b>: we do not know who you are.','<b>409 stale_version</b>: the row changed since you read it; reload.','<b>428 precondition_required</b>: a required header is missing.'];const s=document.getElementById('sc'),o=document.getElementById('sc-out');function u(){o.innerHTML=a[+s.value]}s.onchange=u;u()})();
+</script>
+<h3>One error format: Problem Details + <code>code</code> + <code>traceId</code></h3>
+<pre data-lang="json"><code>{ "type": "https://leave.example/errors/overlap", "title": "Dates overlap an existing leave",
+  "status": 409, "code": "leave_overlap", "detail": "12 Nov is already covered by request 98.",
+  "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00" }</code></pre>
+<p>The client switches on the stable <code>code</code>, not on wording. One global exception handler maps known failures and logs unknown ones; it never returns a stack trace.</p>
+
+<h2>Design principles (interview gold)</h2>
+<table><tr><th>Principle</th><th>LMS example</th></tr>
+<tr><td>Never trust the client</td><td>Angular hides a button; the API re-checks role, ownership and rules</td></tr>
+<tr><td>Ownership check on every id</td><td>Ids are small integers (guessable), so every handler loads "mine, or my report's, or I am HR"</td></tr>
+<tr><td>Server computes, client displays</td><td><code>allowedActions</code> in the response so Angular does not copy rules</td></tr>
+<tr><td>Preview = same rule run twice</td><td>No second copy of day counting in Angular</td></tr>
+<tr><td>Expose what the screen needs</td><td>Responses shaped for a use, not table copies</td></tr>
+<tr><td>Contract tooling</td><td>Generate OpenAPI and a typed Angular client so drift breaks the build, not production</td></tr></table>
+
+<h2>REST vs GraphQL vs gRPC</h2>
+<table><tr><th>Style</th><th>Choose when</th><th>LMS</th></tr>
+<tr><td>REST</td><td>Resource-shaped data, fixed screens, easy caching and tooling</td><td><b>Chosen</b></td></tr>
+<tr><td>GraphQL</td><td>Many clients each needing different fields</td><td>One client; no</td></tr>
+<tr><td>gRPC</td><td>Service-to-service, high throughput, streaming</td><td>No services to connect</td></tr></table>
+
+<h2>Paging, filtering, versioning</h2>
+<ul><li><b>Offset</b> paging for page-number screens (max 100); <b>keyset</b> (cursor on <code>Id</code>) for big lists like audit.</li><li>Filtering and sorting run in the database using the screen's index.</li><li>Evolve without breaking: <b>add</b> fields, never rename or remove; a breaking change is <code>/v2</code> served beside v1.</li></ul>
+
+<h2>Practice: design the API for a new feature</h2>
+<p><i>"Employees can attach a medical certificate to a Sick request."</i></p>
+<ol><li><code>POST /leave-requests/{id}/certificate</code> (multipart, owner only) → 201; 404 if not yours; 422 <code>file_type_not_allowed</code>.</li><li><code>GET /leave-requests/{id}/certificate</code> → only owner, approver, HR (privacy: highest-risk upload); streams the file with a short-lived link.</li><li>New table <code>MedicalCertificate</code>; retention one year after leave; audit each view.</li></ol>
+
+<div class="quiz"><div class="q" data-a="0"><b>Why <code>POST /approve</code> instead of <code>PATCH status</code>?</b><button class="opt">Approve has its own rules, role, balance effects, audit and email</button><button class="opt">PATCH is not allowed in HTTP</button><button class="opt">POST is faster</button><div class="why">A status change is a business action, not a field edit.</div></div>
+<div class="q" data-a="1"><b>409 or 422 for "not enough balance"?</b><button class="opt">409</button><button class="opt">422: the request breaks a business rule; retrying the same request never helps</button><button class="opt">500</button><div class="why">409 is for clashes with current state that a reload may fix.</div></div></div>
+</div><div class="pager"><a href="07-database-deep.html">← Database deep dive</a><a href="09-nfr-scaling.html">NFRs and scaling →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

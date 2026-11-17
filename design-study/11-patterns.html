@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architect&#x27;s pattern catalog · LMS Design Study</title><meta name="description" content="CQRS, event sourcing, saga, circuit breaker and more: when to use, when not">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html" class="cur">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>The architect's pattern catalog</h1>
+<p class="lead">Seniors are valued for knowing <b>when not to use</b> a pattern. Each card: what it is, when it pays off, and the LMS stance.</p>
+<div class="grid" id="pat"></div>
+<script>
+(function(){const P=[
+['CQRS','Separate models for writing and reading.','Reads and writes have very different shapes or scale (heavy reporting).','LMS: no. Simple CRUD. HR reports might get a read model later.'],
+['Event sourcing','Store every change as an event; state = replay of events.','You need a full history and time travel as the core of the domain.','LMS: no. A ledger gives the history for balances only, which is simpler.'],
+['Saga','A chain of local transactions with compensating steps across services.','A business process spans several services with their own databases.','LMS: no. One database transaction does it. Mention: Restore on reject is a compensation in spirit.'],
+['Outbox','Save the message with the data; publish later.','You must not lose or invent messages.','LMS: yes (notifications).'],
+['Circuit breaker','Stop calling a failing dependency for a while.','Calls to a flaky or slow service pile up.','LMS: for the mail or Entra dependencies, via resilience policies.'],
+['Retry + backoff + jitter','Try again, waiting longer, with random spread.','Transient failures (network, deadlock).','LMS: deadlock retry (3×), outbox attempts.'],
+['Bulkhead','Isolate resources so one failure cannot sink all.','One noisy feature could starve others.','LMS: background worker separate from request threads.'],
+['Cache-aside','App checks cache, then DB, then fills cache.','Hot, rarely changing reads.','LMS: holidays and leave types (planned).'],
+['Rate limiting','Cap calls per time and caller.','Abuse, cost control.','LMS: dev endpoints, 30 a minute.'],
+['API gateway / BFF','One entry per client type; BFF holds tokens in cookies.','Many services, or safer browser token handling.','LMS: BFF is the production upgrade for tokens.'],
+['Strangler fig','Replace a legacy system piece by piece behind a facade.','Migrating from spreadsheets/old system.','LMS story: leave moved from email and spreadsheets.'],
+['CDC / change streams','Publish database changes as events.','Keep other systems in sync without dual writes.','LMS: not needed; outbox is explicit.'],
+['Feature flags','Turn features on and off at runtime.','Safe rollout, dark launches.','LMS: Auth:Mode switch is a config flag.'],
+['Multi-tenancy','Serve several customers from one system.','SaaS.','LMS: Won\'t for MVP (single company). Options: schema/row-level tenant id, DB per tenant.']];
+const el=document.getElementById('pat');P.forEach(p=>{const d=document.createElement('details');d.className='card';d.innerHTML='<summary>'+p[0]+'</summary><p><b>What:</b> '+p[1]+'</p><p><b>Use when:</b> '+p[2]+'</p><p><b>'+p[3].split(':')[0]+':</b>'+p[3].slice(p[3].indexOf(':')+1)+'</p>';el.appendChild(d)})})();
+</script>
+
+<h2>Monolith to microservices: decision flow</h2>
+<pre data-lang="ascii"><code>Do separate teams need separate releases?      no ─┐
+Does one part need very different scale?       no ─┤
+Is a part truly independent (own data)?        no ─┼─► stay a MODULAR MONOLITH
+Can you afford ops: pipelines, tracing, on-call? no ─┘
+               yes to several ─► extract ONE module first (the one with the clearest border), measure, then decide more</code></pre>
+<table><tr><th>Cost of microservices</th><th>Meaning</th></tr>
+<tr><td>Network failure modes</td><td>Timeouts, partial failure, retries</td></tr>
+<tr><td>Distributed data</td><td>No cross-service transaction; sagas, eventual consistency</td></tr>
+<tr><td>Operations</td><td>Many deployments, tracing, versioning of contracts</td></tr></table>
+
+<h2>Sync or async?</h2>
+<table><tr><th>Use sync (HTTP)</th><th>Use async (queue)</th></tr>
+<tr><td>The caller needs the answer now (balance, apply result)</td><td>The work can finish later (emails, reports, accrual jobs)</td></tr>
+<tr><td>Simple flow, low volume</td><td>Smoothing spikes, retries, fan-out to many consumers</td></tr></table>
+<p><b>Queue vs topic vs event:</b> a queue delivers each message to <i>one</i> consumer (send this email); a topic gives <i>each</i> subscriber a copy (leave approved → payroll and calendar); an event is a lightweight "something happened".</p>
+
+<h2>Build vs buy and technology choice</h2>
+<p>For any tool ask: <b>Does a requirement demand it?</b> <b>Can the team run it?</b> <b>What is the exit cost?</b> The LMS added Redis and RabbitMQ only after the vertical slice worked, each behind an ADR. That order shows maturity.</p>
+
+<h2>Writing an ADR (architecture decision record)</h2>
+<pre data-lang="template"><code>Title:     12  Days are held at submit
+Context:   Two pending requests could together promise more days than exist.
+Options:   deduct at submit | deduct at approval
+Decision:  deduct at submit
+Why:       Available stays honest.
+Trade-off: reject and cancel must restore days.
+Revisit:   if HR wants "tentative" requests that do not block balance.</code></pre>
+</div><div class="pager"><a href="10-security.html">← Security and privacy</a><a href="12-new-systems.html">Design new systems →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

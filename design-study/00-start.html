@@ -1,0 +1,46 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Start here · LMS Design Study</title><meta name="description" content="How these notes teach system design with the LMS">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html" class="cur">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><span class="tag">System design</span><span class="tag">HLD</span><span class="tag">LLD</span><span class="tag">Database</span>
+<h1>System design with the Leave Management System</h1>
+<p class="lead">You built a real system with real trade-offs. These notes turn it into a design course: every concept is taught with the LMS, then used on a <b>new</b> system so you can design anything in an interview.</p>
+
+<div class="card"><b>The one idea that connects everything</b>
+<pre data-lang="ascii"><code>Business need ──► Requirements ──► HLD (the big boxes) ──► LLD (classes, rules)
+ "approve fast,     functional +      web, api, db,          use cases, pure rules,
+  never wrong"      non-functional    queue, cache           interfaces, state machine
+                          │                                          │
+                          └──────────► Database design ◄────────────┘
+                                       tables, keys, constraints, indexes</code></pre>
+<p>A senior engineer can walk <b>down</b> this chain (why does this index exist? because screen S-05 needs it, because BR-05 says managers approve) and <b>up</b> it (BR-05 changes: what in the design moves?). That skill is what "architect" means in an interview.</p></div>
+
+<h2>Where each word fits</h2>
+<table><tr><th>Term</th><th>Question it answers</th><th>LMS example</th></tr>
+<tr><td><b>Requirements</b></td><td>What must it do, and how well?</td><td>BR-05 managers approve or reject; p95 under 300 ms</td></tr>
+<tr><td><b>HLD</b> (high-level design)</td><td>What are the big parts and how do they talk?</td><td>Angular web, ASP.NET Core API, SQL Server, outbox + worker, later Redis and RabbitMQ</td></tr>
+<tr><td><b>LLD</b> (low-level design)</td><td>What are the classes, rules and interfaces inside a part?</td><td><code>ApplyForLeave</code>, <code>LeaveRules</code>, <code>WorkingDayCalculator</code>, <code>ILeaveApplicationStore</code></td></tr>
+<tr><td><b>Database design</b></td><td>What data do we keep, and what does the database itself refuse?</td><td>13 tables, 5 schemas, ledger + guarded balance, unique day index</td></tr>
+<tr><td><b>API design</b></td><td>What exactly can the client ask for?</td><td>32 endpoints, Problem Details errors, ETag, Idempotency-Key</td></tr></table>
+
+<h2>The path (about 14 pages)</h2>
+<table><tr><th>#</th><th>Page</th><th>You will be able to…</th></tr>
+<tr><td>1</td><td><a href="01-requirements.html">Requirements</a></td><td>list 100 % of the LMS business needs and turn any idea into testable requirements</td></tr>
+<tr><td>2</td><td><a href="02-method.html">The design method</a></td><td>follow a 7-step recipe for any new system</td></tr>
+<tr><td>3</td><td><a href="03-hld.html">HLD</a></td><td>draw context, container and request flow; justify a modular monolith</td></tr>
+<tr><td>4</td><td><a href="04-hld-patterns.html">HLD patterns (live demos)</a></td><td>explain outbox, idempotency, optimistic concurrency, cache</td></tr>
+<tr><td>5</td><td><a href="05-lld.html">LLD</a></td><td>design classes, use cases, rules, state machines, DI</td></tr>
+<tr><td>6</td><td><a href="06-database.html">Database design</a></td><td>go from entities to tables, keys, constraints</td></tr>
+<tr><td>7</td><td><a href="07-database-deep.html">Database deep dive</a></td><td>indexes, transactions, ledger, migrations, SQL vs NoSQL</td></tr>
+<tr><td>8</td><td><a href="08-api.html">API design</a></td><td>design REST endpoints, errors, versioning, paging</td></tr>
+<tr><td>9</td><td><a href="09-nfr-scaling.html">NFRs and scaling</a></td><td>size a system and say how it would scale</td></tr>
+<tr><td>10</td><td><a href="10-security.html">Security and privacy</a></td><td>design authN, authZ, audit, data protection</td></tr>
+<tr><td>11</td><td><a href="11-patterns.html">Architect's pattern catalog</a></td><td>pick CQRS, saga, circuit breaker, etc. only when needed</td></tr>
+<tr><td>12</td><td><a href="12-new-systems.html">Design new systems</a></td><td>apply everything to an expense, room-booking and ticket system</td></tr>
+<tr><td>13</td><td><a href="13-interview.html">Interview kit</a></td><td>answer 25+ questions, run a mock design interview</td></tr></table>
+
+<div class="callout ok"><b class="t">How to study</b>Each page: read the picture, press the buttons in the demos, then answer the check questions out loud. After pages 3 to 7 draw the LMS from memory on paper. That paper exercise is the best interview preparation.</div>
+<div class="callout warn"><b class="t">Sources and honesty</b>Requirements, ADRs, tables and API rules come from your Confluence space LMA (Phases 1 to 3d) and the repo (<code>ai/design</code>, <code>ai/steering</code>, <code>src</code>). Some designs are <b>intended</b>, not built yet (approve and cancel endpoints, Redis, RabbitMQ, Entra mode); the pages say so. The demos are small JavaScript models for learning, not your C# code. I did not build or run the .NET code.</div>
+</div><div class="pager"><span></span><a href="01-requirements.html">Requirements →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

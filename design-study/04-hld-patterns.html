@@ -1,0 +1,74 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HLD patterns (live demos) · LMS Design Study</title><meta name="description" content="Outbox, idempotency, optimistic concurrency, caching: play with each">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html" class="cur">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>HLD patterns you can play with</h1>
+<p class="lead">Four patterns solve most "what if it fails?" questions in the LMS. Each has a demo: break it first, then fix it.</p>
+
+<h2>1. Outbox: never lose the email</h2>
+<p><b>Problem:</b> saving a request and sending an email are two actions in two systems (database and mail). One can succeed while the other fails. <b>Fix:</b> save the request <i>and</i> an "email to send" row in the <b>same database transaction</b>. A worker sends later.</p>
+<div class="sim" id="ob"><h4>Outbox demo</h4>
+<div class="row"><label><input type="checkbox" id="ob-use" checked> Use outbox</label><label><input type="checkbox" id="ob-crash"> Server crashes right after saving</label></div>
+<div class="row"><button class="b" id="ob-submit">1. Submit leave request</button><button class="b g" id="ob-worker">2. Run worker</button><label><input type="checkbox" id="ob-wcrash"> Worker crashes after sending, before marking</label><label><input type="checkbox" id="ob-dedupe"> Consumer dedupes (ProcessedMessage)</label><button class="b g" id="ob-reset">Reset</button></div>
+<table><tr><th>Requests saved</th><th>Outbox rows</th><th>Emails delivered</th></tr><tr><td id="ob-r">0</td><td id="ob-o">none</td><td id="ob-e">0</td></tr></table>
+<div class="out" id="ob-say">Press Submit.</div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);let S;function rs(){S={req:0,out:[],mail:0,seen:{}};say('Press Submit.');draw()}
+function say(t){g('ob-say').innerHTML=t}
+function draw(){g('ob-r').textContent=S.req;g('ob-o').innerHTML=S.out.length?S.out.map(o=>'#'+o.id+(o.sent?' ✓sent':' ⏳unsent')).join('<br>'):'none';g('ob-e').textContent=S.mail}
+let n=0;
+g('ob-submit').onclick=()=>{S.req++;if(g('ob-use').checked){S.out.push({id:++n,sent:false});say('<span class="good">Request and outbox row saved atomically.</span>'+(g('ob-crash').checked?' The server crashed after saving, but the outbox row survives. Press Run worker.':' Press Run worker to send the email.'))}else{if(g('ob-crash').checked)say('<span class="bad">Request saved, server crashed before sending. The email is lost forever and nobody knows.</span>');else{S.mail++;say('Saved, then sent inside the request. Worked this time, but it makes the request slow and fails when mail is down.')}}draw()};
+g('ob-worker').onclick=()=>{const p=S.out.filter(o=>!o.sent);if(!p.length){say('Nothing to send.');return}let t='';p.forEach(o=>{if(g('ob-dedupe').checked&&S.seen[o.id]){t+='Message #'+o.id+' already processed: <span class="good">skipped (no duplicate)</span>.<br>';o.sent=true;return}S.mail++;S.seen[o.id]=1;if(g('ob-wcrash').checked){t+='Sent #'+o.id+' but crashed before marking it sent. <span class="bad">It will be picked up again.</span><br>'}else{o.sent=true;t+='Sent #'+o.id+' and marked it sent.<br>'}});say(t+'<br><i>Delivery is at least once, so the sender must be safe to repeat.</i>');draw()};
+g('ob-reset').onclick=rs;rs()})();
+</script>
+<table><tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Weakness of outbox?</td><td>Email arrives seconds later and can be delivered twice. Fix: make the sender idempotent (<code>ProcessedMessage(Consumer, MessageId)</code>).</td></tr>
+<tr><td>Why not just use RabbitMQ directly?</td><td>The broker and the database cannot share a transaction. The outbox guarantees the message exists <i>only if</i> the request was saved; the broker then delivers it. The LMS keeps the outbox and adds the broker later.</td></tr>
+<tr><td>What goes in the payload?</td><td>Ids only (<code>requestId</code>, <code>employeeId</code>), never names or emails (privacy).</td></tr></table>
+
+<h2>2. Idempotency key: a double click must not hold days twice</h2>
+<p><b>Idempotent</b> = repeating gives the same result as doing it once. <code>GET</code> and <code>PUT</code> are; <code>POST</code> is not. Networks retry, people double-click, so creating <code>POST</code>s carry an <code>Idempotency-Key</code>. The server stores the key, a hash of the body, and the response.</p>
+<div class="sim"><h4>Double-click demo (balance 8.0, applying 3 days)</h4>
+<div class="row"><label><input type="checkbox" id="id-use" checked> Send Idempotency-Key</label><button class="b" id="id-click">Submit (same key)</button><button class="b g" id="id-diff">Same key, different dates</button><button class="b g" id="id-reset">Reset</button></div>
+<table><tr><th>Requests saved</th><th>Available balance</th><th>Stored keys</th></tr><tr><td id="id-r">0</td><td id="id-b">8.0</td><td id="id-k">0</td></tr></table><div class="out" id="id-say">Click Submit twice quickly.</div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);let r,b,k,h;function rs(){r=0;b=8;k=0;h=null;draw();g('id-say').textContent='Click Submit twice quickly.'}function draw(){g('id-r').textContent=r;g('id-b').textContent=b.toFixed(1);g('id-k').textContent=k}
+g('id-click').onclick=()=>{if(g('id-use').checked&&h==='A'){g('id-say').innerHTML='<span class="good">Same key and same body: server returns the saved 201. Nothing new is created.</span>';return}if(b<3){g('id-say').innerHTML='<span class="bad">422 insufficient_balance</span>';return}r++;b-=3;if(g('id-use').checked){h='A';k=1;g('id-say').innerHTML='First call saved the request and the key.'}else g('id-say').innerHTML='<span class="bad">No key: the server cannot tell a retry from a new request. Days held twice.</span>';draw()};
+g('id-diff').onclick=()=>{g('id-say').innerHTML=(g('id-use').checked&&h)?'<span class="good">Same key but a different body hash → 422 idempotency_key_reused. A key means "this exact request".</span>':'Send a first request with a key before testing this.'};
+g('id-reset').onclick=rs;rs()})();
+</script>
+<div class="callout"><b class="t">LMS detail</b>The use case checks <code>FindSavedAnswerAsync</code> <i>before</i> running rules, so a retry after midnight still gets the saved answer instead of a "date in the past" refusal. The key lives in <code>leave.IdempotencyKey(EmployeeId, KeyValue)</code> with a <code>RequestHash</code> (SHA-256 of the body). Old keys are cleaned up by a job.</div>
+
+<h2>3. Optimistic concurrency: two managers, one request</h2>
+<p><b>Problem:</b> two people read the same request. Manager A approves. Manager B (stale screen) rejects. Without protection the last write wins and the days are restored for an approved request. <b>Fix:</b> every read returns a <b>version</b> (<code>ETag</code> from SQL <code>rowversion</code>); a write sends it back as <code>If-Match</code>. If it changed, the answer is <b>409 stale_version</b>.</p>
+<div class="sim"><h4>Two managers demo</h4>
+<div class="row"><label><input type="checkbox" id="cc-use" checked> Check version (If-Match)</label><button class="b" id="cc-a">Manager A approves (loaded v5)</button><button class="b" id="cc-b">Manager B rejects (loaded v5)</button><button class="b g" id="cc-reset">Reset</button></div>
+<table><tr><th>Status</th><th>Version</th><th>Balance available</th></tr><tr><td id="cc-s">Pending</td><td id="cc-v">5</td><td id="cc-bal">5.0</td></tr></table><div class="out" id="cc-say">Press A, then B.</div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);let s,v,bal;function rs(){s='Pending';v=5;bal=5;draw();g('cc-say').textContent='Press A, then B.'}function draw(){g('cc-s').textContent=s;g('cc-v').textContent=v;g('cc-bal').textContent=bal.toFixed(1)}
+function act(kind){const check=g('cc-use').checked;if(check&&v!==5){g('cc-say').innerHTML='<span class="good">409 stale_version.</span> The screen was out of date (loaded v5, now v'+v+'). Reload and look again.';return}if(kind==='A'){s='Approved';v++;g('cc-say').textContent='Approved. Version is now '+v+'.'}else{s='Rejected';v++;bal+=3;g('cc-say').innerHTML=check?'Rejected and 3 days restored.':'<span class="bad">Last write wins: request was approved, now rejected and days restored. Data is inconsistent (and A already emailed the employee).</span>'}draw()}
+g('cc-a').onclick=()=>act('A');g('cc-b').onclick=()=>act('B');g('cc-reset').onclick=rs;rs()})();
+</script>
+<table><tr><th>Strategy</th><th>How</th><th>Use when</th></tr>
+<tr><td><b>Optimistic</b> (LMS)</td><td>Read version; write only if unchanged; else 409</td><td>Conflicts are rare (two managers on one request)</td></tr>
+<tr><td><b>Pessimistic</b></td><td>Lock the row while editing</td><td>Conflicts are frequent and expensive; short operations</td></tr>
+<tr><td><b>Atomic statement</b> (balance)</td><td><code>UPDATE ... WHERE Available >= @days</code></td><td>Counters and stock: condition and change in one statement</td></tr></table>
+<p><b>409 vs 422:</b> 409 means "valid request, clashes with current state; reload may fix it". 422 means "the request itself breaks a rule; retrying never helps".</p>
+
+<h2>4. Caching: what to cache, and what never</h2>
+<pre data-lang="ascii"><code>Cache-aside:  api ─ask─► Redis ─hit─► return
+                         └ miss ─► SQL Server ─► store in Redis with expiry ─► return</code></pre>
+<table><tr><th>Data</th><th>Cache?</th><th>Why</th></tr>
+<tr><td>Leave types (7 rows), holidays</td><td><b>Yes</b></td><td>Read on every apply, change rarely</td></tr>
+<tr><td>Balances, requests</td><td><b>No</b></td><td>Change on every approval; a stale value would be wrong</td></tr>
+<tr><td>Audit log</td><td>No</td><td>Append-only, read by few</td></tr></table>
+<ul><li><b>Stampede:</b> when a hot key expires, 100 requests all hit the database. <code>HybridCache</code> lets one caller reload while others wait.</li>
+<li><b>Invalidation:</b> when HR edits a holiday, remove or update the key (or accept a short expiry).</li>
+<li><b>Hard rule:</b> a cache is an optimisation, never the source of truth.</li></ul>
+<div class="callout warn"><b class="t">Status</b>Redis/HybridCache and RabbitMQ are planned for increment 4g; not built yet. Study them as design, and say so.</div>
+
+<div class="quiz"><div class="q" data-a="1"><b>Why is email delivery "at least once" with an outbox?</b><button class="opt">The mail server is unreliable</button><button class="opt">A worker may send, then crash before marking the row sent, so it sends again</button><button class="opt">SQL cannot store emails</button><div class="why">Hence the consumer dedupes with ProcessedMessage.</div></div>
+<div class="q" data-a="0"><b>Which header protects against two managers deciding the same version?</b><button class="opt">If-Match</button><button class="opt">Accept</button><button class="opt">Origin</button><div class="why">If-Match carries the ETag version read earlier.</div></div></div>
+</div><div class="pager"><a href="03-hld.html">← HLD</a><a href="05-lld.html">LLD →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

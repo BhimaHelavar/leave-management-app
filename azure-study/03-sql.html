@@ -1,0 +1,80 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Azure SQL · LMS Azure Study</title><meta name="description" content="Free database, firewall, connection string, migrations and demo data">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html" class="cur">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Azure SQL Database</h1>
+<p class="lead">A managed SQL Server. Azure does backups, patching and high availability; you own the schema and the data.</p>
+
+<h2>What it is and how the free offer works</h2>
+<ul><li><b>Logical server</b> (<code>lms-sql-xyz.database.windows.net</code>): the endpoint, admin login and firewall. Holds databases.</li>
+<li><b>Database</b> (<code>LeaveManagement</code>): where the tables live.</li>
+<li><b>Serverless free offer</b>: each month per database 100,000 vCore-seconds, 32 GB data and 32 GB backup. Only <i>new</i> databases qualify, up to 10 per subscription. No SLA.</li>
+<li><b>Auto-pause</b>: after 15 idle minutes the database pauses (no compute cost). The first query afterwards waits while it resumes. When the free seconds are used up, <code>AutoPause</code> pauses it until next month; <code>BillOverUsage</code> keeps it running and bills you, and cannot be undone. The LMS spec chooses <b>AutoPause</b>.</li></ul>
+<div class="callout warn"><b class="t">Do not leave SSMS or Azure Data Studio connected</b>An open connection stops auto-pause and burns your free seconds. Close the tool when you finish.</div>
+
+<h2>Step 1: create server and database</h2>
+<pre data-lang="powershell"><code>$SUFFIX = "bs92"                       # your own 3-8 character unique text
+$SQL    = "lms-sql-$SUFFIX"
+$ADMIN  = "lmsadmin"
+$PW     = Read-Host "SQL admin password (min 8, mixed)" -AsSecureString
+$PWPLAIN = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($PW))
+
+az sql server create -g $RG -n $SQL -l $LOC --admin-user $ADMIN --admin-password $PWPLAIN
+
+az sql db create -g $RG -s $SQL -n LeaveManagement `
+  --edition GeneralPurpose --family Gen5 --capacity 2 --compute-model Serverless `
+  --use-free-limit true --free-limit-exhaustion-behavior AutoPause
+
+# prove it is the free database:
+az sql db show -g $RG -s $SQL -n LeaveManagement --query "{free:useFreeLimit, behaviour:freeLimitExhaustionBehavior, state:status}"</code></pre>
+<div class="callout warn"><b class="t">Check before you trust</b>The flag spelling comes from the repo's research file. Run <code>az sql db create -h</code> and compare. If the free offer is not available in South India, Azure says so; try Central India, then Southeast Asia, and move the resource group's other resources to the same region family. The first free database's region applies to all free databases in the subscription.</div>
+
+<h2>Step 2: the firewall (the most common first error)</h2>
+<p>The server rejects everyone by default. Error: <i>Client with IP address … is not allowed to access the server</i>. Open two doors:</p>
+<pre data-lang="powershell"><code># door 1: your laptop (to run migrations)
+$MYIP = (Invoke-RestMethod https://api.ipify.org)
+az sql server firewall-rule create -g $RG -s $SQL -n my-laptop --start-ip-address $MYIP --end-ip-address $MYIP
+
+# door 2: Azure services (the App Service API). 0.0.0.0 is Azure's special "allow Azure" value
+az sql server firewall-rule create -g $RG -s $SQL -n AllowAzureServices --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0</code></pre>
+<div class="callout"><b class="t">Security note</b>"Allow Azure services" lets <i>any</i> Azure customer's service reach the server's front door; they still need the login. It is acceptable for a demo. The stronger design is a private endpoint or a managed identity login (see the Security page).</div>
+
+<h2>Step 3: the connection string</h2>
+<pre data-lang="text"><code>Server=tcp:lms-sql-bs92.database.windows.net,1433;Initial Catalog=LeaveManagement;User ID=lmsadmin;Password=&lt;password&gt;;Encrypt=True;TrustServerCertificate=False;Connection Timeout=60;</code></pre>
+<ul><li><b>Encrypt=True</b> is required on Azure. <b>Connection Timeout=60</b> gives a paused database time to wake up.</li>
+<li>Never commit it. It goes in App Service <i>connection strings</i> (see the API page). In .NET it arrives as <code>ConnectionStrings:Default</code>, which is what <code>Program.cs</code> reads.</li></ul>
+
+<h2>Step 4: create the tables (the gap)</h2>
+<div class="callout gap"><b class="t">Why this step exists</b><code>Program.cs</code> calls <code>DatabaseInitializer.InitializeAsync(..., seedDemoData: true)</code> only when <code>app.Environment.IsDevelopment()</code>. Azure uses <code>Demo</code>, so the API starts, <code>/health</code> may say the database is unreachable or empty, and every real call fails with "Invalid object name". You must create the schema yourself.</div>
+
+<h3>Option A: idempotent SQL script (the repo's decision, safest)</h3>
+<pre data-lang="powershell"><code># from the repo root. "idempotent" = safe to run twice; it checks the migration history table
+dotnet ef migrations script --idempotent `
+  -p src/LeaveManagement.Infrastructure -s src/LeaveManagement.Api -o migrate.sql
+
+# READ migrate.sql first. It is just CREATE TABLE statements.
+sqlcmd -S lms-sql-bs92.database.windows.net -d LeaveManagement -U lmsadmin -P "&lt;password&gt;" -i migrate.sql</code></pre>
+<p>No <code>dotnet-ef</code> yet? Ask me before installing: <code>dotnet tool install --global dotnet-ef</code> (an install, so I did not run it). You can run the .sql in SSMS or the portal's Query editor too.</p>
+
+<h3>Option B: run the app once locally against Azure SQL</h3>
+<pre data-lang="powershell"><code>$env:ASPNETCORE_ENVIRONMENT = "Development"
+$env:ConnectionStrings__Default = "&lt;the Azure connection string&gt;"
+dotnet run --project src/LeaveManagement.Api
+# Development =&gt; MigrateAsync + reference data + demo seed run once. Stop it with Ctrl+C.
+Remove-Item Env:ConnectionStrings__Default</code></pre>
+<p>This also loads the demo people, balances and holidays in one go. Trade-off: it runs code against a remote database from your laptop and seeds demo data by design; fine for a demo, not for production.</p>
+
+<div class="callout"><b class="t">Better long-term (a spec change, not done)</b>Add an explicit setting like <code>Database:SeedDemo=true</code> so <code>Demo</code> can seed on purpose, without pretending to be Development. That is a small, reviewable change for a future task.</div>
+
+<h2>Check it worked</h2>
+<pre data-lang="sql"><code>SELECT name FROM sys.tables ORDER BY name;                 -- your LMS tables
+SELECT TOP 5 * FROM __EFMigrationsHistory;                 -- which migrations ran</code></pre>
+
+<h2>Backups and restore (concept)</h2>
+<p>Azure keeps automatic backups (point-in-time restore for a short window). You restore into a <i>new</i> database, never over the old one. Know the words <b>RPO</b> (how much data you can lose) and <b>RTO</b> (how long to recover).</p>
+
+<div class="quiz"><div class="q" data-a="0"><b>Why did <code>Demo</code> not create the tables?</b><button class="opt">Code runs migrations only in Development</button><button class="opt">Azure SQL blocks migrations</button><button class="opt">The firewall removed them</button><div class="why">See <code>Program.cs</code>: the initializer is inside <code>if (app.Environment.IsDevelopment())</code>.</div></div>
+<div class="q" data-a="2"><b>The first query after a quiet hour is slow. Why?</b><button class="opt">Index rebuild</button><button class="opt">The firewall is checking you</button><button class="opt">The serverless database was auto-paused and is resuming</button><div class="why">Auto-pause saves free seconds; resume takes a few seconds to a minute.</div></div></div>
+</div><div class="pager"><a href="02-architecture.html">← Architecture</a><a href="04-api.html">API on App Service →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

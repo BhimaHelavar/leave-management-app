@@ -1,0 +1,38 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cost and cleanup · LMS Azure Study</title><meta name="description" content="Stay in the free tier, watch spending, delete safely">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html" class="cur">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Cost, limits and cleanup</h1>
+<p class="lead">The demo should cost nothing. These habits make sure it does.</p>
+
+<h2>What costs money, and what does not</h2>
+<table><tr><th>Item</th><th>Free tier behaviour</th><th>Watch out</th></tr>
+<tr><td>Static Web Apps Free</td><td>Free plan</td><td>Staying on Free: no Standard features</td></tr>
+<tr><td>App Service F1</td><td>Free, hard CPU quota</td><td>Creating a second plan on a paid SKU by accident</td></tr>
+<tr><td>Azure SQL free offer</td><td>100k vCore-seconds a month</td><td><code>BillOverUsage</code> setting; an open SSMS session; a database that was not created with the free flag</td></tr>
+<tr><td>Application Insights / Log Analytics</td><td>Small free ingestion allowance</td><td>Verbose logging, no daily cap</td></tr>
+<tr><td>Key Vault</td><td>Pay per operation (tiny)</td><td>Rarely a problem</td></tr>
+<tr><td>Redis, Service Bus premium, Front Door, AKS</td><td>Mostly not free</td><td>Do not create them for the demo</td></tr></table>
+
+<h2>Habits</h2>
+<ol><li><b>Budget first</b> (Basics page). Test the alert email.</li>
+<li>After each session open <b>Cost Management → Cost analysis</b> for 30 seconds. Filter by resource group.</li>
+<li>Verify the database is really free: <code>az sql db show … --query useFreeLimit</code> must be <code>true</code>.</li>
+<li>Tag everything <code>app=lms</code> so unknown costs are easy to find.</li>
+<li>Do not leave tools connected to the database.</li></ol>
+
+<h2>Cleanup</h2>
+<pre data-lang="powershell"><code># list everything first, so you know what will disappear
+az resource list -g $RG -o table
+# then remove the whole environment (asks for confirmation)
+az group delete -n $RG</code></pre>
+<div class="callout warn"><b class="t">Destructive command</b>Deleting a resource group is not undoable. Your rules say to ask before running destructive commands; run this yourself when you are sure. Soft-deleted Key Vaults keep their name for a while (purge protection), so use a different name if you recreate.</div>
+
+<h2>Tier upgrade path (when the demo becomes real)</h2>
+<pre data-lang="ascii"><code>F1 Free ──► B1 Basic ──► S1 Standard ──► P0v3 Premium
+no Always On   Always On,     slots, autoscale   more power, zones
+               custom TLS</code></pre>
+<p>Change the plan with <code>az appservice plan update -g $RG -n plan-lms-demo --sku B1</code>. Same app, same URL, now billed.</p>
+</div><div class="pager"><a href="11-more-services.html">← Other Azure services</a><a href="13-runbook.html">Deploy-day runbook →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

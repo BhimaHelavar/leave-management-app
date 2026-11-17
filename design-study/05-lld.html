@@ -1,0 +1,137 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LLD · LMS Design Study</title><meta name="description" content="Classes, use cases, pure rules, interfaces, DI, state machine, SOLID">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html" class="cur">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Low-level design (LLD)</h1>
+<p class="lead">LLD zooms into one box of the HLD and decides <b>classes, methods, interfaces and rules</b>. Goal: code that is easy to test, easy to change, and hard to misuse.</p>
+
+<h2>The LLD recipe</h2>
+<ol><li><b>Find the nouns</b> in the requirements: Employee, LeaveType, LeaveRequest, Holiday, Balance.</li>
+<li><b>Find the verbs</b>: apply, approve, reject, cancel, preview. These become <b>use cases</b>.</li>
+<li><b>Separate pure rules</b> (need only inputs) from <b>things that touch the world</b> (database, clock, email).</li>
+<li><b>Put an interface</b> in front of everything that touches the world.</li>
+<li><b>Model states</b> (lifecycle) as an explicit state machine.</li>
+<li><b>Decide errors</b>: rule failures are results; bugs are exceptions.</li></ol>
+
+<h2>The shape of the LMS apply use case</h2>
+<pre data-lang="ascii"><code>POST /leave-requests ─► Endpoint (Api)
+                          │ calls
+                          ▼
+                    ApplyForLeave (Application, the use case)
+          ┌───────────────┼───────────────────────────┐
+          ▼               ▼                           ▼
+   IApplicantReader   LeavePlanner ──► Domain:      ILeaveApplicationStore
+   (who is calling)   (counts days,    WorkingDayCalculator   (saves everything in
+                       checks rules)   LeaveRules (pure!)      ONE transaction)
+                                                              ▲ implemented by EF Core
+                                                                (Infrastructure)</code></pre>
+<table><tr><th>Class / interface</th><th>Layer</th><th>Job</th><th>Why separate</th></tr>
+<tr><td><code>ApplyForLeave</code></td><td>Application</td><td>Orchestrates: check person, replay, plan, save</td><td>One use case = one class = easy to read</td></tr>
+<tr><td><code>LeavePlanner</code></td><td>Application</td><td>Shared by preview and apply</td><td>Preview and submit can never disagree</td></tr>
+<tr><td><code>WorkingDayCalculator</code></td><td>Domain</td><td>Count slots between two dates</td><td>Pure: no clock, no database</td></tr>
+<tr><td><code>LeaveRules</code></td><td>Domain</td><td>First rule violation, in a fixed order</td><td>Pure; numbers come from the leave type</td></tr>
+<tr><td><code>ILeaveApplicationStore</code></td><td>Application</td><td>Port: save atomically, find saved answer</td><td>Domain/Application do not know EF Core</td></tr>
+<tr><td><code>IClock</code>, <code>IHolidayReader</code>, <code>ILeaveTypeReader</code></td><td>Application</td><td>Ports for time and reference data</td><td>Tests use a fake clock and fake data</td></tr></table>
+
+<h2>Pure rules: the best LLD trick</h2>
+<p>A <b>pure function</b> gives the same output for the same input and touches nothing else. The LMS rules are pure, so tests are fast and certain. The real C# (from <code>WorkingDayCalculator.cs</code>):</p>
+<pre data-lang="csharp"><code>public static WorkingDayResult Count(DateOnly start, DateOnly end, HalfDay halfDay, IReadOnlySet&lt;DateOnly&gt; holidays)
+{
+    var slots = new List&lt;LeaveSlot&gt;();
+    var singleHalfDay = halfDay != HalfDay.None &amp;&amp; start == end;
+
+    for (var date = start; date &lt;= end; date = date.AddDays(1))
+    {
+        if (IsWeekend(date)) continue;          // Saturday/Sunday never count
+        if (holidays.Contains(date)) continue;  // holidays never count (sandwich rule off)
+
+        if (singleHalfDay) slots.Add(new LeaveSlot(date, halfDay == HalfDay.FirstHalf ? Slot.AM : Slot.PM));
+        else { slots.Add(new LeaveSlot(date, Slot.AM)); slots.Add(new LeaveSlot(date, Slot.PM)); }
+    }
+    return new WorkingDayResult(slots, ...);   // DaysCount = slots * 0.5
+}</code></pre>
+<div class="callout"><b class="t">Design insight</b><code>DaysCount = Slots.Count * 0.5</code>. The saved day rows and the number are computed from the same list, so they can never disagree. Good LLD makes the wrong state <b>impossible to represent</b>.</div>
+
+<div class="sim"><h4>Try the working-day rule (JavaScript model of the C# above)</h4>
+<div class="row">Start <input type="date" id="wd-s" value="2026-11-06"> End <input type="date" id="wd-e" value="2026-11-10"> Half day <select id="wd-h"><option>None</option><option>FirstHalf</option><option>SecondHalf</option></select></div>
+<div class="row">Holidays (comma separated yyyy-mm-dd) <input type="text" id="wd-hol" value="2026-11-09" style="min-width:230px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)"></div>
+<div class="out" id="wd-out"></div><div class="cal" id="wd-cal"></div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);function p(s){const a=s.split('-').map(Number);return new Date(Date.UTC(a[0],a[1]-1,a[2]))}function f(d){return d.toISOString().slice(0,10)}
+function run(){const s=p(g('wd-s').value),e=p(g('wd-e').value),h=g('wd-h').value;const hol=new Set(g('wd-hol').value.split(',').map(x=>x.trim()).filter(Boolean));const cal=g('wd-cal');cal.innerHTML='';['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(x=>cal.insertAdjacentHTML('beforeend','<div class="h">'+x+'</div>'));
+if(isNaN(s)||isNaN(e)){return}if(e<s){g('wd-out').innerHTML='<span class="bad">DateRange: end before start (refused before counting)</span>';return}if(s.getUTCFullYear()!==e.getUTCFullYear()){g('wd-out').innerHTML='<span class="bad">YearCross: a request never crosses a leave year; submit two</span>';return}
+const span=Math.round((e-s)/864e5)+1;if(span>60){g('wd-out').textContent='Range too long for the demo';return}
+for(let i=0;i<s.getUTCDay();i++)cal.insertAdjacentHTML('beforeend','<div></div>');let slots=0,days=[],skipped=[];const single=h!=='None'&&f(s)===f(e);
+for(let d=new Date(s);d<=e;d=new Date(d.getTime()+864e5)){const w=d.getUTCDay(),k=f(d);let cls='',lab=d.getUTCDate();if(w===0||w===6){cls='we'}else if(hol.has(k)){cls='hol';skipped.push(k);lab+=' 🎉'}else{cls='cnt';days.push(k);slots+=single?1:2;lab+=single?(h==='FirstHalf'?' AM':' PM'):''}cal.insertAdjacentHTML('beforeend','<div class="'+cls+'">'+lab+'</div>')}
+let msg='<b>DaysCount = '+(slots*0.5)+'</b> ('+slots+' half-day slots → '+slots+' rows in LeaveRequestDay)';if(h!=='None'&&!single)msg+='<br><span class="bad">HalfDayInvalid: a half day must be a single day</span>';if(slots===0)msg+='<br><span class="bad">DaysNone: no working day in the range</span>';if(skipped.length)msg+='<br>Skipped holiday: '+skipped.join(', ');g('wd-out').innerHTML=msg}
+['wd-s','wd-e','wd-h','wd-hol'].forEach(i=>g(i).oninput=run);run()})();
+</script>
+<p>Green = counted. Orange = holiday skipped. Faded = weekend. Try Friday to Tuesday with Monday as a holiday: 2 days. Try a half day on a weekend: no counted slot.</p>
+
+<h2>Rule order matters (fail fast, one clear error)</h2>
+<pre data-lang="ascii"><code>DateRange → YearCross → DatePast → HalfDayInvalid → DaysNone → NoticeShort → MaxConsecutive
+   (cheap, date-only checks first)            (need holidays/clock later)</code></pre>
+<p><code>LeaveRules.FirstViolation</code> returns the <b>first</b> failure, in a documented order, so the API and tests always agree. The numbers (notice days, max days) come from the <code>LeaveType</code> row, so an Admin can change them without code.</p>
+
+<h2>Result, not exceptions, for business failures</h2>
+<table><tr><th>Situation</th><th>Mechanism</th><th>Why</th></tr>
+<tr><td>Not enough balance, overlap, notice too short</td><td>Return a result with a <code>code</code></td><td>Expected outcome; cheap; no stack trace</td></tr>
+<tr><td>Unique-index violation (race)</td><td>Catch DB error 2601/2627 → map to 409</td><td>Second line of defence</td></tr>
+<tr><td>Bug, check constraint failed (547)</td><td>Exception → 500, logged with traceId</td><td>Something is wrong with the code</td></tr></table>
+
+<h2>The lifecycle as a state machine</h2>
+<p>A <b>state machine</b> lists the legal states and the only legal moves. Click a state to see its moves.</p>
+<div class="sim"><h4>Leave request lifecycle</h4>
+<div class="states" id="sm"><div class="st" data-s="Pending">Pending</div><div class="st" data-s="Approved">Approved</div><div class="st" data-s="Rejected">Rejected</div><div class="st" data-s="Cancelled">Cancelled</div></div><div class="out" id="sm-out">Click a state.</div></div>
+<script>
+(function(){const m={Pending:'Moves: → <b>Approved</b> (manager approves direct report, never own; HR on behalf), → <b>Rejected</b> (comment required, days restored), → <b>Cancelled</b> (employee before start, days restored).',Approved:'Moves: → <b>Cancelled</b> (employee before start; HR after start; days restored). No way back to Pending.',Rejected:'Terminal. Days already restored. The employee submits a new request if needed.',Cancelled:'Terminal. Days restored.'};document.querySelectorAll('#sm .st').forEach(e=>e.onclick=()=>{document.querySelectorAll('#sm .st').forEach(x=>x.classList.remove('on'));e.classList.add('on');document.getElementById('sm-out').innerHTML='<b>'+e.dataset.s+'</b><br>'+m[e.dataset.s]})})();
+</script>
+<pre data-lang="csharp"><code>// Intended design: the transition table is data, so illegal moves are impossible.
+static readonly Dictionary&lt;LeaveStatus, LeaveStatus[]&gt; Allowed = new()
+{
+    [LeaveStatus.Pending]  = [LeaveStatus.Approved, LeaveStatus.Rejected, LeaveStatus.Cancelled],
+    [LeaveStatus.Approved] = [LeaveStatus.Cancelled],
+    [LeaveStatus.Rejected] = [],
+    [LeaveStatus.Cancelled] = [],
+};
+public bool CanMoveTo(LeaveStatus next) =&gt; Allowed[Status].Contains(next);</code></pre>
+<p class="callout warn"><b>Status:</b> the approve and cancel endpoints arrive in 4d/4e. This table is the intended design, written as an example, not copied from the repo.</p>
+
+<h2>Dependency injection (DI) and testing</h2>
+<pre data-lang="ascii"><code>Production:  ApplyForLeave ◄── IClock = SystemClock,  ILeaveApplicationStore = EfStore
+Test:        ApplyForLeave ◄── IClock = FakeClock(2026-11-02), store = InMemoryStore</code></pre>
+<pre data-lang="csharp"><code>// Application asks for interfaces in the constructor (primary constructor in C# 12+):
+public sealed class ApplyForLeave(IApplicantReader applicants, LeavePlanner planner, ILeaveApplicationStore store) { ... }
+
+// Api wires it once at startup (composition root):
+services.AddScoped&lt;ILeaveApplicationStore, LeaveApplicationStore&gt;();   // Infrastructure
+services.AddScoped&lt;ApplyForLeave&gt;();</code></pre>
+
+<h2>SOLID with LMS examples</h2>
+<table><tr><th>Letter</th><th>Meaning</th><th>LMS example</th></tr>
+<tr><td><b>S</b>ingle responsibility</td><td>One reason to change</td><td><code>LeaveRules</code> only rules; <code>AuditWriter</code> only writes audit</td></tr>
+<tr><td><b>O</b>pen/closed</td><td>Extend without editing</td><td>New leave type = new row, no code change</td></tr>
+<tr><td><b>L</b>iskov substitution</td><td>Any implementation works</td><td>Fake store in tests behaves like the EF store</td></tr>
+<tr><td><b>I</b>nterface segregation</td><td>Small interfaces</td><td><code>IHolidayReader</code>, <code>ILeaveTypeReader</code> instead of one giant repository</td></tr>
+<tr><td><b>D</b>ependency inversion</td><td>Depend on abstractions</td><td>Application defines <code>ILeaveApplicationStore</code>; Infrastructure implements it</td></tr></table>
+
+<h2>Patterns already in the LMS</h2>
+<table><tr><th>Pattern</th><th>Where</th><th>Purpose</th></tr>
+<tr><td>Ports and adapters / Repository-like store</td><td><code>I*Reader</code>, <code>ILeaveApplicationStore</code></td><td>Hide the database</td></tr>
+<tr><td>Unit of work</td><td>One transaction in the store</td><td>All-or-nothing writes</td></tr>
+<tr><td>Outbox</td><td><code>OutboxMessage</code></td><td>Reliable messages</td></tr>
+<tr><td>Idempotent receiver</td><td><code>IdempotencyKey</code>, <code>ProcessedMessage</code></td><td>Safe repeats</td></tr>
+<tr><td>Snapshot</td><td><code>DaysCount</code></td><td>History never rewritten</td></tr>
+<tr><td>Strategy by data</td><td>Rules read from <code>LeaveType</code></td><td>Behaviour by configuration</td></tr>
+<tr><td>Composition root</td><td><code>Program.cs</code></td><td>One place that wires everything</td></tr></table>
+
+<h2>LLD practice: design a class for a new rule</h2>
+<p>Requirement: <i>"Casual leave: max 2 requests per month."</i> Where does it go?</p>
+<ol><li>Add a nullable column <code>MaxRequestsPerMonth</code> on <code>LeaveType</code> (config, not code).</li><li>Add <code>MonthlyLimit</code> to <code>LeaveRuleViolation</code> and a new check in <code>LeaveRules</code>, after <code>MaxConsecutive</code>.</li><li>The count of existing requests needs the database, so add it to <code>LeaveRuleInput</code> (<code>RequestsThisMonth</code>), loaded by <code>LeavePlanner</code> through a reader interface.</li><li>Test the pure rule with <code>RequestsThisMonth = 2</code>.</li><li>Map the violation to code <code>monthly_limit</code> and HTTP 422.</li></ol>
+<div class="callout ok"><b class="t">Notice</b>No endpoint, no EF code changed in the rule itself. That is what good LLD buys.</div>
+
+<div class="quiz"><div class="q" data-a="2"><b>Why is <code>LeaveRules</code> a pure static class taking "today" as input?</b><button class="opt">To save memory</button><button class="opt">C# requires it</button><button class="opt">The Domain has no clock; pure inputs make tests deterministic</button><div class="why">No clock and no database inside Domain means a unit test needs no setup.</div></div>
+<div class="q" data-a="0"><b>An overlap detected by the unique index (race) returns…</b><button class="opt">409 leave_overlap</button><button class="opt">500</button><button class="opt">422</button><div class="why">It clashes with current data: 409.</div></div></div>
+</div><div class="pager"><a href="04-hld-patterns.html">← HLD patterns (live demos)</a><a href="06-database.html">Database design →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

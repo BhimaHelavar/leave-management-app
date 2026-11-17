@@ -1,0 +1,76 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>API on App Service · LMS Azure Study</title><meta name="description" content="Plan, web app, settings, zip deploy, health, logs">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html" class="cur">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>The .NET API on App Service</h1>
+<p class="lead">App Service runs your web app for you: OS, runtime, TLS, restarts. You pay for the <b>plan</b> (the machine); you can run several apps on one plan.</p>
+
+<h2>Two ideas first</h2>
+<table><tr><th>Idea</th><th>Meaning</th></tr>
+<tr><td><b>App Service plan</b></td><td>The compute: size, OS (Linux), price tier. F1 = free shared. B1 = small dedicated. S1 adds slots and autoscale.</td></tr>
+<tr><td><b>Web app</b></td><td>Your running site on that plan, with its own URL <code>https://&lt;name&gt;.azurewebsites.net</code>, settings and logs.</td></tr></table>
+<table><tr><th>Tier</th><th>Good for</th><th>Limits</th></tr>
+<tr><td>F1 Free</td><td>Learning demo</td><td>Shared, ~60 CPU min/day, no Always On, no custom-domain TLS, no slots, no SLA</td></tr>
+<tr><td>B1 Basic</td><td>Small real use</td><td>Dedicated, Always On, custom domain + TLS, manual scale</td></tr>
+<tr><td>S1 Standard</td><td>Production-like</td><td>Deployment slots, autoscale, daily backups</td></tr></table>
+<p>I do not quote prices because sources disagreed. Use the Azure pricing calculator for your region.</p>
+
+<h2>Step 1: plan and web app</h2>
+<pre data-lang="powershell"><code>$API  = "lms-api-$SUFFIX"
+az appservice plan create -g $RG -n plan-lms-demo --is-linux --sku F1 -l $LOC
+az webapp create -g $RG -p plan-lms-demo -n $API --runtime "DOTNETCORE:10.0"
+az webapp update -g $RG -n $API --https-only true
+az webapp config set -g $RG -n $API --http20-enabled true --min-tls-version 1.2 --ftps-state Disabled</code></pre>
+<ul><li><code>DOTNETCORE:10.0</code> is the Linux runtime string for .NET 10 (LTS). On a Windows plan it would be <code>DOTNET:10</code>.</li>
+<li>If F1 says "quota is 0" in your region, use another region or request quota. Test this early.</li>
+<li>Always On is not available on F1. After idle the app unloads; the first request is a cold start (a few seconds).</li></ul>
+
+<h2>Step 2: app settings (the cloud version of appsettings and env vars)</h2>
+<p>Settings you add here become <b>environment variables</b> for your process. In .NET a double underscore means a colon: <code>Auth__Mode</code> = <code>Auth:Mode</code>.</p>
+<table><tr><th>Setting</th><th>Value on Azure</th><th>Why</th></tr>
+<tr><td><code>ASPNETCORE_ENVIRONMENT</code></td><td><code>Demo</code></td><td>Dev auth is allowed only in Development or Demo. Not Development, so no auto-migrate.</td></tr>
+<tr><td><code>Auth__Mode</code></td><td><code>Dev</code></td><td><code>EntraId</code> throws "arrives in 4g" for now</td></tr>
+<tr><td><code>Cors__AllowedOrigin</code></td><td><code>https://&lt;swa-host&gt;</code></td><td>Exactly one origin: the web app. No trailing slash</td></tr>
+<tr><td><code>Auth__Dev__SigningKey</code></td><td>random, 32+ characters</td><td>Signs the dev JWT. Never reuse a real secret</td></tr>
+<tr><td><code>ConnectionStrings__Default</code></td><td>the Azure SQL string</td><td>Set as a <i>connection string</i> of type SQLAzure</td></tr></table>
+<pre data-lang="powershell"><code>$WEBHOST = "&lt;your-swa-host&gt;.azurestaticapps.net"      # fill in after the web page step
+$KEY = [Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
+
+az webapp config appsettings set -g $RG -n $API --settings `
+  ASPNETCORE_ENVIRONMENT=Demo Auth__Mode=Dev `
+  Cors__AllowedOrigin="https://$WEBHOST" Auth__Dev__SigningKey="$KEY"
+
+az webapp config connection-string set -g $RG -n $API --connection-string-type SQLAzure `
+  --settings Default="Server=tcp:$SQL.database.windows.net,1433;Initial Catalog=LeaveManagement;User ID=$ADMIN;Password=$PWPLAIN;Encrypt=True;Connection Timeout=60;"
+
+az webapp config set -g $RG -n $API --generic-configurations '{"healthCheckPath":"/health"}'</code></pre>
+<div class="callout"><b class="t">Linux detail</b>A connection string saved this way appears to your code as the environment variable <code>SQLAZURECONNSTR_Default</code>. .NET's environment provider maps it to <code>ConnectionStrings:Default</code> automatically, so <code>Program.cs</code> needs no change.</div>
+
+<h2>Step 3: build and ship the API</h2>
+<pre data-lang="powershell"><code>dotnet publish src/LeaveManagement.Api -c Release -o publish
+Compress-Archive -Path publish/* -DestinationPath api.zip -Force
+az webapp deploy -g $RG -n $API --src-path api.zip --type zip</code></pre>
+<div class="term" data-lines='["$ az webapp deploy -g rg-lms-demo -n lms-api-bs92 --src-path api.zip --type zip","Initiating deployment","Deploying from local zip. This operation might take a while...","Deployment has completed successfully","$ curl https://lms-api-bs92.azurewebsites.net/health","{\"status\":\"Healthy\",\"authMode\":\"Dev\",\"database\":\"Reachable\",\"environment\":\"Demo\"}"]'></div>
+<p>The exact JSON from <code>/health</code> may differ; the repo returns Status, AuthMode, Database, Environment and TimeUtc.</p>
+
+<h2>Step 4: test, then read logs</h2>
+<pre data-lang="powershell"><code>curl https://$API.azurewebsites.net/health
+az webapp log config -g $RG -n $API --application-logging filesystem --level information
+az webapp log tail -g $RG -n $API          # live console; Ctrl+C to stop</code></pre>
+
+<h2>Container alternative (later)</h2>
+<p>The repo already has <code>src/LeaveManagement.Api/Dockerfile</code> (port 8080, non-root). You could push that image to <b>Azure Container Registry</b> and run it on App Service for Containers or Container Apps. Use it when you need the exact same image on laptop, CI and cloud, or want scale-to-zero. Not needed for the first deploy.
+
+<h2>Deployment slots (concept)</h2>
+<p>A slot is a second copy of the app (for example <code>staging</code>). You deploy there, test, then <b>swap</b>: the slot goes live instantly with no downtime, and swapping back is a rollback. Needs Standard or higher.</p>
+
+<h2>Common problems</h2>
+<table><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr>
+<tr><td>503 / "Application Error" after deploy</td><td>Startup crash. Often a missing setting, e.g. signing key under 32 chars</td><td><code>az webapp log tail</code>, read the exception</td></tr>
+<tr><td>Starts, but "Dev auth not allowed"</td><td>Environment is not Development or Demo</td><td>Set <code>ASPNETCORE_ENVIRONMENT=Demo</code></td></tr>
+<tr><td>CORS error in the browser</td><td>Wrong origin, trailing slash, http vs https</td><td>Match the exact SWA origin</td></tr>
+<tr><td>SQL error 40615 / login failed</td><td>Firewall, or wrong string</td><td>Add the firewall rule; compare the string</td></tr>
+<tr><td>Quota exceeded (F1)</td><td>60 CPU minutes used</td><td>Wait for the daily reset, or move to B1</td></tr></table>
+</div><div class="pager"><a href="03-sql.html">← Azure SQL</a><a href="05-web.html">Angular on Static Web Apps →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

@@ -1,0 +1,54 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architecture · LMS Azure Study</title><meta name="description" content="The LMS on Azure and how to choose a hosting service">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html" class="cur">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Architecture: the LMS on Azure</h1>
+<p class="lead">Three services, one pipeline. Press <b>Next</b> to follow a request from the browser to the database.</p>
+
+<div class="journey" data-steps='[
+{"t":"You open the Static Web Apps URL. Azure serves index.html, JS and styles from its global edge. No server code runs here.","nodes":["browser","swa"]},
+{"t":"Before first render Angular fetches /config.json. It holds the API URL, so the same build works locally and on Azure.","nodes":["browser","swa"]},
+{"t":"Angular calls POST https://<api>.azurewebsites.net/api/dev/token. This is a cross-origin call, so the browser first sends a CORS preflight.","nodes":["browser","api"]},
+{"t":"The API (App Service) answers the preflight only for the one allowed origin (Cors__AllowedOrigin = the Static Web Apps URL).","nodes":["api"]},
+{"t":"The API reads the connection string from App Service settings and opens a TLS connection to Azure SQL (firewall rule: Allow Azure services).","nodes":["api","sql"]},
+{"t":"If the database is paused (free offer, idle 15 min) the first call is slow while it resumes. The API returns the signed JWT.","nodes":["sql","api"]},
+{"t":"Logs and timings flow to Application Insights, so you can see failures and slow calls.","nodes":["api","ai"]},
+{"t":"Separately: you run the GitHub Actions deploy workflow. It builds and ships the web and the API. No servers are touched by hand.","nodes":["gh","swa","api"]}]'>
+<div class="flow"><svg viewBox="0 0 760 330" role="img" aria-label="LMS on Azure architecture">
+<path class="link" d="M130 70 H260"/><path class="link" d="M130 110 Q 200 190 300 190"/><path class="link" d="M400 190 H470"/><path class="link" d="M570 190 H620"/><path class="link" d="M350 225 V270"/><path class="link" d="M120 280 Q 220 270 300 215"/><path class="link" d="M120 270 Q 190 150 260 100"/>
+<g class="node" data-n="browser"><rect x="20" y="40" width="110" height="90" rx="12"/><text x="75" y="80" text-anchor="middle">Browser</text><text class="sub" x="75" y="98" text-anchor="middle">Angular app</text></g>
+<g class="node" data-n="swa"><rect x="260" y="30" width="170" height="80" rx="12"/><text x="345" y="65" text-anchor="middle">Static Web Apps</text><text class="sub" x="345" y="84" text-anchor="middle">web files + config.json</text></g>
+<g class="node" data-n="api"><rect x="300" y="150" width="100" height="75" rx="12"/><text x="350" y="183" text-anchor="middle">API</text><text class="sub" x="350" y="201" text-anchor="middle">App Service</text></g>
+<g class="node" data-n="sql"><rect x="470" y="150" width="100" height="75" rx="12"/><text x="520" y="183" text-anchor="middle">Azure SQL</text><text class="sub" x="520" y="201" text-anchor="middle">free, auto-pause</text></g>
+<g class="node" data-n="ai"><rect x="270" y="270" width="160" height="50" rx="12"/><text x="350" y="300" text-anchor="middle">App Insights</text></g>
+<g class="node" data-n="gh"><rect x="20" y="250" width="100" height="60" rx="12"/><text x="70" y="285" text-anchor="middle">GitHub Actions</text></g>
+<g class="node" data-n="kv"><rect x="620" y="150" width="110" height="75" rx="12"/><text x="675" y="183" text-anchor="middle">Key Vault</text><text class="sub" x="675" y="201" text-anchor="middle">later (optional)</text></g>
+</svg></div>
+<div class="ctl"><button class="b g pv">← Back</button><button class="b nx">Next →</button><button class="b g pl">Auto-play</button></div>
+<div class="say"></div></div>
+
+<h2>Why this shape</h2>
+<table><tr><th>Choice</th><th>Why</th><th>Rejected</th></tr>
+<tr><td>Static Web Apps for Angular</td><td>The built app is only files. Free plan, global CDN, free HTTPS.</td><td>Running nginx in a container: you pay to serve static files</td></tr>
+<tr><td>App Service for the API</td><td>You give it code; Azure handles the OS, patching, TLS, scaling knob. Simplest path for one .NET API.</td><td>VM (you patch everything), AKS (too heavy for one API)</td></tr>
+<tr><td>API called directly + CORS</td><td>Static Web Apps Free cannot link an App Service as its API (that needs the Standard plan).</td><td>Same-origin <code>/api</code> proxy (Standard plan only)</td></tr>
+<tr><td>Azure SQL free offer</td><td>Same engine as LocalDB and SQL Server, no code change, free monthly allowance.</td><td>Cosmos DB (different model), SQL Server on a VM (you manage it)</td></tr></table>
+
+<div class="callout warn"><b class="t">Free-tier trade-offs to know</b>
+App Service F1 is shared: about 60 CPU minutes a day, no Always On (the app sleeps and the first call is slow), no SLA. Azure SQL free: 100,000 vCore-seconds a month and it pauses itself after 15 minutes idle. Good for a demo, not for real users.</div>
+
+<h2>Hosting options compared</h2>
+<table><tr><th>Service</th><th>You give it</th><th>Good for</th><th>Not so good</th></tr>
+<tr><td><b>App Service</b></td><td>Code or a container</td><td>Web APIs and sites. Slots, TLS, scaling, easy CI/CD</td><td>Many small services needing fine control</td></tr>
+<tr><td><b>Static Web Apps</b></td><td>Built static files (+ optional Functions)</td><td>Angular, React, docs sites</td><td>Server-side rendering at scale, private backends on Free</td></tr>
+<tr><td><b>Container Apps</b></td><td>A container image</td><td>Microservices, scale to zero, background workers</td><td>Needs an image registry and container knowledge</td></tr>
+<tr><td><b>Functions</b></td><td>Small pieces of code on a trigger</td><td>Timers, queue handlers, webhooks</td><td>Long, stateful work</td></tr>
+<tr><td><b>AKS (Kubernetes)</b></td><td>Container + cluster config</td><td>Large platforms with many services and a platform team</td><td>One small app: cost and complexity</td></tr>
+<tr><td><b>Virtual machine</b></td><td>An OS you manage</td><td>Legacy apps, special software</td><td>Everything you could do on a PaaS</td></tr></table>
+<div class="callout ok"><b class="t">Interview line</b>"I chose PaaS (App Service and Static Web Apps) because for one API the managed platform removes patching and server work. If the LMS split into several services I would move the API to Container Apps using the Dockerfiles already in the repo."</div>
+
+<h2>IaaS, PaaS, SaaS in one minute</h2>
+<ul><li><b>IaaS</b> (VM): Azure runs the hardware, you run the OS and everything above.</li><li><b>PaaS</b> (App Service, Azure SQL): Azure runs hardware and OS, you bring code and data.</li><li><b>SaaS</b> (Microsoft 365): you just use the product.</li></ul>
+</div><div class="pager"><a href="01-basics.html">← Azure basics</a><a href="03-sql.html">Azure SQL →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

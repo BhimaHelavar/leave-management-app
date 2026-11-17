@@ -1,0 +1,143 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Infrastructure as code · LMS Azure Study</title><meta name="description" content="Bicep: create the whole environment from one file">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html" class="cur">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Infrastructure as code with Bicep</h1>
+<p class="lead">Clicking in the portal is fine to learn, but you cannot repeat it exactly. <b>Infrastructure as code (IaC)</b> describes resources in a file you keep in git, review, and re-run.</p>
+
+<h2>What Bicep is</h2>
+<ul><li>A simple language that compiles to an ARM template (JSON). Azure creates what the file describes.</li>
+<li><b>Declarative</b>: you say <i>what</i> you want, not the steps. Running it twice changes nothing if nothing changed (<b>idempotent</b>).</li>
+<li>Alternatives: Terraform (multi-cloud, state file), ARM JSON (verbose), Pulumi (real languages). Bicep is Azure-only and has no state file to manage.</li></ul>
+
+<h2>Anatomy</h2>
+<table><tr><th>Piece</th><th>Meaning</th><th>Example</th></tr>
+<tr><td><code>param</code></td><td>An input</td><td><code>param suffix string</code></td></tr>
+<tr><td><code>var</code></td><td>A computed value</td><td><code>var apiName = 'lms-api-${suffix}'</code></td></tr>
+<tr><td><code>resource</code></td><td>Something to create. Type + API version.</td><td><code>resource plan 'Microsoft.Web/serverfarms@2023-12-01'</code></td></tr>
+<tr><td><code>parent</code></td><td>Child of another resource</td><td>a database inside a server</td></tr>
+<tr><td><code>output</code></td><td>A result to print</td><td>the API URL</td></tr>
+<tr><td><code>@secure()</code></td><td>Never logged</td><td>passwords</td></tr></table>
+
+<h2>The LMS demo environment</h2>
+<p>This file creates: App Service plan (F1 Linux), the API web app with settings, SQL server, the free serverless database with auto-pause, the "allow Azure services" rule, and the Static Web App. <b>It compiles cleanly with Bicep CLI 0.49.2</b> (property names such as <code>useFreeLimit</code> and <code>freeLimitExhaustionBehavior</code> were accepted by the type checker). I did <b>not</b> deploy it to Azure.</p>
+<pre data-lang="bicep"><code>// LMS Demo environment. Run at resource-group scope:
+//   az deployment group create -g rg-lms-demo -f main.bicep -p sqlAdminPassword=&lt;from a vault&gt; suffix=&lt;unique&gt;
+targetScope = 'resourceGroup'
+
+@description('Short unique text so global names do not clash, e.g. your initials + digits')
+@minLength(3)
+@maxLength(8)
+param suffix string
+
+@description('Region for SQL and the API')
+param location string = resourceGroup().location
+
+@description('Static Web Apps only exist in a few regions')
+param swaLocation string = 'eastasia'
+
+param sqlAdminLogin string = 'lmsadmin'
+@secure()
+param sqlAdminPassword string
+
+@secure()
+param devSigningKey string
+
+var apiName = 'lms-api-${suffix}'
+var sqlName = 'lms-sql-${suffix}'
+
+resource plan 'Microsoft.Web/serverfarms@2023-12-01' = {
+  name: 'plan-lms-demo'
+  location: location
+  kind: 'linux'
+  sku: { name: 'F1', tier: 'Free' }
+  properties: { reserved: true }
+}
+
+resource sql 'Microsoft.Sql/servers@2023-08-01-preview' = {
+  name: sqlName
+  location: location
+  properties: {
+    administratorLogin: sqlAdminLogin
+    administratorLoginPassword: sqlAdminPassword
+    minimalTlsVersion: '1.2'
+  }
+}
+
+resource db 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
+  parent: sql
+  name: 'LeaveManagement'
+  location: location
+  sku: { name: 'GP_S_Gen5', tier: 'GeneralPurpose', family: 'Gen5', capacity: 2 }
+  properties: {
+    useFreeLimit: true
+    freeLimitExhaustionBehavior: 'AutoPause'
+  }
+}
+
+resource allowAzure 'Microsoft.Sql/servers/firewallRules@2023-08-01-preview' = {
+  parent: sql
+  name: 'AllowAzureServices'
+  properties: { startIpAddress: '0.0.0.0', endIpAddress: '0.0.0.0' }
+}
+
+resource swa 'Microsoft.Web/staticSites@2023-12-01' = {
+  name: 'lms-web-${suffix}'
+  location: swaLocation
+  sku: { name: 'Free', tier: 'Free' }
+  properties: {}
+}
+
+resource api 'Microsoft.Web/sites@2023-12-01' = {
+  name: apiName
+  location: location
+  kind: 'app,linux'
+  properties: {
+    serverFarmId: plan.id
+    httpsOnly: true
+    siteConfig: {
+      linuxFxVersion: 'DOTNETCORE|10.0'
+      alwaysOn: false          // F1 does not allow Always On
+      minTlsVersion: '1.2'
+      ftpsState: 'Disabled'
+      healthCheckPath: '/health'
+      appSettings: [
+        { name: 'ASPNETCORE_ENVIRONMENT', value: 'Demo' }
+        { name: 'Auth__Mode', value: 'Dev' }
+        { name: 'Cors__AllowedOrigin', value: 'https://${swa.properties.defaultHostname}' }
+        { name: 'Auth__Dev__SigningKey', value: devSigningKey }
+      ]
+      connectionStrings: [
+        {
+          name: 'Default'
+          type: 'SQLAzure'
+          connectionString: 'Server=tcp:${sql.properties.fullyQualifiedDomainName},1433;Database=LeaveManagement;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};Encrypt=True;TrustServerCertificate=False;Connection Timeout=60;'
+        }
+      ]
+    }
+  }
+}
+
+output apiUrl string = 'https://${api.properties.defaultHostName}'
+output webUrl string = 'https://${swa.properties.defaultHostname}'
+output sqlServer string = sql.properties.fullyQualifiedDomainName</code></pre>
+
+<h2>Run it</h2>
+<pre data-lang="powershell"><code>az bicep install
+az bicep build --file bicep/main.bicep                       # compile only: catches typos
+az deployment group what-if -g $RG -f bicep/main.bicep -p suffix=bs92 sqlAdminPassword=$PWPLAIN devSigningKey=$KEY
+az deployment group create  -g $RG -f bicep/main.bicep -p suffix=bs92 sqlAdminPassword=$PWPLAIN devSigningKey=$KEY</code></pre>
+<ul><li><code>what-if</code> shows what would change before anything changes. Use it every time.</li>
+<li>Passing passwords on the command line leaves them in shell history. Better: read them from Key Vault (<code>getSecret</code> in a parameter file) or from GitHub secrets in CI.</li></ul>
+
+<div class="callout warn"><b class="t">Known weak points of this file (on purpose, for learning)</b>
+1) The SQL password sits in an app setting. Next step: Key Vault reference or managed identity.<br>
+2) The firewall rule "allow Azure services" is broad.<br>
+3) It does not run migrations. Database schema is still a separate step (SQL page).<br>
+4) Static Web App region and SQL free-offer region must be checked in your subscription.</div>
+
+<h2>Modules and environments (concept)</h2>
+<p>When the file grows, split into <b>modules</b> (<code>module sql 'sql.bicep' = {...}</code>) and add a parameter file per environment (<code>demo.bicepparam</code>, <code>prod.bicepparam</code>). Same code, different sizes: F1 for demo, B1 or S1 for production.</p>
+</div><div class="pager"><a href="07-cicd.html">← CI/CD with GitHub Actions</a><a href="09-security.html">Security and networking →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

@@ -1,0 +1,67 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Angular on Static Web Apps · LMS Azure Study</title><meta name="description" content="Deploy the web app, config.json, routing fallback, headers">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html" class="cur">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>The Angular app on Static Web Apps</h1>
+<p class="lead">Your Angular build is only files (<code>dist/web/browser</code>). Static Web Apps stores them and serves them worldwide with free HTTPS.</p>
+
+<h2>What the Free plan gives (and does not)</h2>
+<table><tr><th>You get</th><th>You do not get</th></tr>
+<tr><td>250 MB app, free HTTPS, 2 custom domains, 3 staging environments, global CDN</td><td>Linking your own App Service as <code>/api</code> (Standard plan), IP restrictions, SLA</td></tr></table>
+<div class="callout"><b class="t">Consequence for the LMS</b>The browser calls the API <b>directly</b> at its own URL, so the API must allow that origin (CORS), and Angular must be told the API URL at run time. That is exactly what <code>config.json</code> is for.</div>
+
+<h2>Step 1: create the app</h2>
+<pre data-lang="powershell"><code>$WEB = "lms-web-$SUFFIX"
+az staticwebapp create -n $WEB -g $RG -l eastasia --sku Free
+az staticwebapp show -n $WEB -g $RG --query defaultHostname -o tsv</code></pre>
+<p>Static Web Apps only exist in a handful of regions (the "location" is just where its management data lives; content is served globally). <code>eastasia</code> is the closest to India as far as I know; run <code>az staticwebapp create -h</code> to see the list.</p>
+
+<h2>Step 2: the runtime config contract</h2>
+<p>The app fetches <code>/config.json</code> before the first screen. Locally it is <code>{"apiUrl":"http://localhost:5000","devStub":true}</code>. On Azure the deploy step overwrites it:</p>
+<pre data-lang="json"><code>{ "apiUrl": "https://lms-api-bs92.azurewebsites.net" }</code></pre>
+<ul><li><code>apiUrl</code> must be an absolute http(s) URL <b>with no trailing slash</b> or the app shows the config-error page.</li>
+<li>Omit <code>devStub</code> on Azure.</li>
+<li><b>Build once, run anywhere</b>: no environment-specific build. Only this small file changes. Interview point: this is the twelve-factor "config in the environment" idea applied to a browser app.</li></ul>
+<pre data-lang="powershell"><code>Set-Content -Path web/dist/web/browser/config.json -Value ('{"apiUrl":"https://' + $API + '.azurewebsites.net"}') -Encoding utf8NoBOM</code></pre>
+
+<h2>Step 3: <code>staticwebapp.config.json</code> (replaces nginx.conf)</h2>
+<p>Locally nginx gave you two things: the single-page-app fallback and a security-header policy. On Static Web Apps the same job is done by this file, placed in the app output folder (put it in <code>web/public/</code> so Angular copies it to the build).</p>
+<pre data-lang="json"><code>{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "/*.{css,js,json,ico,png,jpg,svg,woff2}"]
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://lms-api-bs92.azurewebsites.net; frame-ancestors 'none'"
+  }
+}</code></pre>
+<div class="callout warn"><b class="t">Two traps</b>
+1) <b>Exclude <code>config.json</code> from the fallback</b> (the <code>*.json</code> pattern above). Otherwise a request for it is rewritten to <code>index.html</code> and the app fails to parse it.<br>
+2) The old CSP says <code>connect-src 'self' http://localhost:5000</code>. On Azure it must name the <b>API origin</b> instead, or the browser blocks every API call. Start from the CSP in <code>web/nginx.conf</code>; the one above is a simplified example.</div>
+
+<h2>Step 4: build and deploy</h2>
+<pre data-lang="powershell"><code>cd web
+npm ci
+npm run build                      # output: dist/web/browser
+cd ..
+$TOKEN = az staticwebapp secrets list -n $WEB -g $RG --query properties.apiKey -o tsv
+npx @azure/static-web-apps-cli deploy ./web/dist/web/browser --deployment-token $TOKEN --env production</code></pre>
+<p><b>The deployment token is a secret.</b> Do not paste it into files. In CI it lives in a GitHub secret (next but one page). Installing the CLI through <code>npx</code> downloads a package; as per your rules, ask before adding anything to the project. Here it runs from the npm cache and does not change <code>package.json</code>.</p>
+
+<h2>Step 5: connect the two halves</h2>
+<ol><li>Copy the Static Web Apps host name.</li><li>Set <code>Cors__AllowedOrigin=https://&lt;host&gt;</code> on the API (page 4) and restart: <code>az webapp restart -g $RG -n $API</code>.</li><li>Open the site. The login screen should list the demo people. If it shows the config error page, check <code>config.json</code> in the browser's Network tab.</li></ol>
+
+<h2>Debug with the browser</h2>
+<table><tr><th>You see</th><th>Look at</th></tr>
+<tr><td>Config error page</td><td>Network → <code>config.json</code>: is it JSON or HTML?</td></tr>
+<tr><td>"blocked by CORS policy" in Console</td><td>API <code>Cors__AllowedOrigin</code> must equal the page origin exactly</td></tr>
+<tr><td>"violates Content Security Policy"</td><td>CSP <code>connect-src</code> must list the API</td></tr>
+<tr><td>404 on refresh of <code>/dashboard</code></td><td><code>navigationFallback</code> missing</td></tr></table>
+
+<h2>Custom domain (optional)</h2>
+<p>Add a CNAME from <code>www.yourname.com</code> to the default host name, then bind it in Portal → Static Web App → Custom domains. Azure issues a free certificate. DNS changes can take time.</p>
+</div><div class="pager"><a href="04-api.html">← API on App Service</a><a href="06-secrets.html">Config, secrets, identity →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

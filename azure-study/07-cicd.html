@@ -1,0 +1,107 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CI/CD with GitHub Actions · LMS Azure Study</title><meta name="description" content="Build, test, deploy; OIDC login without passwords">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html" class="cur">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>CI/CD with GitHub Actions</h1>
+<p class="lead"><b>CI</b> (continuous integration) builds and tests every change. <b>CD</b> (continuous delivery) ships a tested build to Azure. Your repo already has CI (<code>ci.yml</code>, <code>checks.yml</code>). We add a deploy workflow.</p>
+
+<h2>The plan from spec T-02</h2>
+<ul><li><code>.github/workflows/deploy.yml</code>, trigger <b>manual only</b> (<code>workflow_dispatch</code>): you press a button, nothing deploys by accident.</li>
+<li>It writes <code>config.json</code> with the Azure API URL, deploys the web, deploys the API.</li>
+<li>Secrets come from GitHub Actions secrets. The SQL string is set in Azure, <b>not</b> in the workflow.</li></ul>
+
+<h2>Secrets you need</h2>
+<table><tr><th>GitHub secret / variable</th><th>What</th><th>How to get it</th></tr>
+<tr><td><code>AZURE_STATIC_WEB_APPS_API_TOKEN</code></td><td>Deployment token for the web</td><td><code>az staticwebapp secrets list …</code></td></tr>
+<tr><td><code>AZURE_WEBAPP_PUBLISH_PROFILE</code></td><td>Simple option for the API: its publish profile (XML)</td><td><code>az webapp deployment list-publishing-profiles -g $RG -n $API --xml</code></td></tr>
+<tr><td>Variable <code>API_URL</code></td><td>https URL of the API (not a secret)</td><td>Settings → Variables</td></tr></table>
+<p>Add them in GitHub: repo → <b>Settings → Secrets and variables → Actions</b>. Never echo them in logs.</p>
+
+<h2><code>deploy.yml</code> (simple version, matches the spec)</h2>
+<pre data-lang="yaml"><code>name: deploy
+on:
+  workflow_dispatch:            # manual only
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 10.0.x }
+      - run: dotnet publish src/LeaveManagement.Api -c Release -o publish
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.API_APP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: publish
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - name: Write runtime config for Azure
+        run: echo '{"apiUrl":"${{ vars.API_URL }}"}' &gt; web/dist/web/browser/config.json
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: web/dist/web/browser
+          skip_app_build: true</code></pre>
+<div class="callout warn"><b class="t">Not run</b>This YAML is a draft: I checked its syntax but never ran it. Action version numbers drift; check the action pages for the current major version. Pin third-party actions by version, and keep the <code>checks.yml</code> repo-guard that scans for secrets.</div>
+
+<h2>Better: log in with OIDC (no stored password)</h2>
+<p>A publish profile is a long-lived password. <b>OIDC federation</b> replaces it: GitHub proves to Entra "this run is workflow X of repo Y on branch Z" and receives a short-lived Azure token. Nothing to rotate or leak.</p>
+<pre data-lang="ascii"><code>GitHub run ──(signed OIDC token: repo, branch, environment)──► Entra ID
+Entra ID checks the "federated credential" you set up (issuer + subject match)
+Entra ID ──(short-lived Azure access token)──► the run, which calls Azure with the role you granted</code></pre>
+<h3>One-time setup</h3>
+<pre data-lang="powershell"><code>$APPNAME = "gh-lms-deploy"
+$APPID = az ad app create --display-name $APPNAME --query appId -o tsv
+az ad sp create --id $APPID
+$SUB = az account show --query id -o tsv
+az role assignment create --assignee $APPID --role Contributor --scope "/subscriptions/$SUB/resourceGroups/$RG"
+
+# trust your repo's "production" environment
+$cred = '{"name":"gh-prod","issuer":"https://token.actions.githubusercontent.com","subject":"repo:BhimaHelavar/leave-management-app:environment:production","audiences":["api://AzureADTokenExchange"]}'
+$cred | Out-File cred.json -Encoding utf8NoBOM
+az ad app federated-credential create --id $APPID --parameters cred.json
+az account show --query tenantId -o tsv      # note it</code></pre>
+<p>Store <code>AZURE_CLIENT_ID</code>, <code>AZURE_TENANT_ID</code>, <code>AZURE_SUBSCRIPTION_ID</code> as GitHub secrets (they are identifiers, not passwords, but keep them tidy).</p>
+<pre data-lang="yaml"><code>permissions:
+  id-token: write      # allows the run to request the OIDC token
+  contents: read
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    environment: production        # must match the federated credential subject
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2       # check the current major version
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - run: az webapp deploy -g rg-lms-demo -n ${{ vars.API_APP_NAME }} --src-path api.zip --type zip</code></pre>
+<table><tr><th>Error</th><th>Meaning</th></tr>
+<tr><td>"No matching federated identity record found"</td><td>The <code>subject</code> in Azure does not match the run (branch vs environment vs pull_request). Match it exactly.</td></tr>
+<tr><td>AuthorizationFailed</td><td>Login worked, but the service principal has no role on that scope</td></tr>
+<tr><td>AADSTS700024</td><td>Clock skew or expired assertion; re-run</td></tr></table>
+
+<h2>Safe deploys: environments and approvals</h2>
+<p>A GitHub <b>Environment</b> named <code>production</code> can require a reviewer to click Approve before the job gets its secrets. Add it under Settings → Environments. Add <b>concurrency</b> so two deploys never run at once: <code>concurrency: deploy</code>.</p>
+
+<h2>Rollback</h2>
+<ul><li>Redeploy the previous good commit by running the workflow on that commit (<code>Use workflow from</code> → tag).</li><li>With slots (Standard tier): swap back.</li><li>Database: migrations only add; test a restore plan before you need it.</li></ul>
+</div><div class="pager"><a href="06-secrets.html">← Config, secrets, identity</a><a href="08-bicep.html">Infrastructure as code →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

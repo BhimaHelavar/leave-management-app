@@ -1,0 +1,78 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deploy-day runbook · LMS Azure Study</title><meta name="description" content="The whole deployment in order, with checks">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html" class="cur">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Deploy-day runbook</h1>
+<p class="lead">Do these in order. Each step has a check so you know it worked before you move on. Tick the boxes; your progress is saved in this browser.</p>
+
+<div class="callout warn"><b class="t">Before you start</b>Everything here is a draft I could not run on a real subscription. Read each command first. Replace values in angle brackets. Never paste a real password into a file you commit.</div>
+
+<h2>Part A: prepare (about 30 minutes)</h2>
+<div class="checklist" data-key="a"><span class="prog"></span>
+<label><input type="checkbox"><span><b>A1</b> Azure account works; <code>az login</code> succeeds; right subscription selected</span></label>
+<label><input type="checkbox"><span><b>A2</b> Budget created with alerts, and the test email arrived</span></label>
+<label><input type="checkbox"><span><b>A3</b> Variables set in PowerShell: <code>$RG $LOC $SUFFIX $SQL $API $WEB</code></span></label>
+<label><input type="checkbox"><span><b>A4</b> Providers registered (Web, Sql, Insights)</span></label>
+<label><input type="checkbox"><span><b>A5</b> Local tests green: <code>dotnet build</code>, <code>dotnet test</code> (if present), <code>npm run test:ci</code> in web</span></label>
+<label><input type="checkbox"><span><b>A6</b> <code>staticwebapp.config.json</code> added to <code>web/public/</code> and reviewed (a code change in a normal branch and pull request)</span></label></div>
+
+<h2>Part B: create the resources (about 20 minutes)</h2>
+<p>Two roads. Pick one. <b>Road 1</b> teaches more; <b>Road 2</b> is faster and repeatable.</p>
+<table><tr><th>Road 1: step by step (CLI)</th><th>Road 2: one command (Bicep)</th></tr>
+<tr><td>Pages 3, 4 and 5 in order</td><td><code>az deployment group create -f bicep/main.bicep …</code> (page 8)</td></tr></table>
+<div class="checklist" data-key="b"><span class="prog"></span>
+<label><input type="checkbox"><span><b>B1</b> Resource group <code>rg-lms-demo</code> exists in your region</span></label>
+<label><input type="checkbox"><span><b>B2</b> SQL server + <code>LeaveManagement</code> database created; <code>useFreeLimit</code> is true</span></label>
+<label><input type="checkbox"><span><b>B3</b> Firewall: your IP + Allow Azure services</span></label>
+<label><input type="checkbox"><span><b>B4</b> App Service plan F1 + web app with <code>DOTNETCORE:10.0</code></span></label>
+<label><input type="checkbox"><span><b>B5</b> Static Web App created; host name noted</span></label></div>
+
+<h2>Part C: database</h2>
+<div class="checklist" data-key="c"><span class="prog"></span>
+<label><input type="checkbox"><span><b>C1</b> <code>migrate.sql</code> generated with <code>--idempotent</code> and <b>read</b></span></label>
+<label><input type="checkbox"><span><b>C2</b> Script applied to Azure SQL; <code>sys.tables</code> shows the LMS tables</span></label>
+<label><input type="checkbox"><span><b>C3</b> Demo data loaded (Option B in the SQL page) and checked</span></label>
+<label><input type="checkbox"><span><b>C4</b> SSMS / Data Studio closed so the database can auto-pause</span></label></div>
+
+<h2>Part D: API</h2>
+<div class="checklist" data-key="d"><span class="prog"></span>
+<label><input type="checkbox"><span><b>D1</b> App settings set: environment Demo, Auth__Mode Dev, signing key, CORS origin</span></label>
+<label><input type="checkbox"><span><b>D2</b> Connection string set as type SQLAzure</span></label>
+<label><input type="checkbox"><span><b>D3</b> <code>dotnet publish</code>, zip, <code>az webapp deploy</code> completed</span></label>
+<label><input type="checkbox"><span><b>D4</b> <code>curl https://&lt;api&gt;/health</code> says Healthy, Dev, Reachable, Demo</span></label></div>
+
+<h2>Part E: web</h2>
+<div class="checklist" data-key="e"><span class="prog"></span>
+<label><input type="checkbox"><span><b>E1</b> <code>npm ci</code> and <code>npm run build</code> succeed</span></label>
+<label><input type="checkbox"><span><b>E2</b> <code>config.json</code> in <code>dist/web/browser</code> has the Azure API URL, no trailing slash</span></label>
+<label><input type="checkbox"><span><b>E3</b> Deployed with the SWA CLI or the workflow</span></label>
+<label><input type="checkbox"><span><b>E4</b> API <code>Cors__AllowedOrigin</code> updated to the SWA host and the API restarted</span></label>
+<label><input type="checkbox"><span><b>E5</b> Open the site: login lists demo people; sign in as an Employee; dashboard shows</span></label></div>
+
+<h2>Part F: prove it and tidy</h2>
+<div class="checklist" data-key="f"><span class="prog"></span>
+<label><input type="checkbox"><span><b>F1</b> Employee calling <code>/api/admin/ping</code> gets 403 and an AccessDenied audit row exists</span></label>
+<label><input type="checkbox"><span><b>F2</b> Admin gets 204 on the same call</span></label>
+<label><input type="checkbox"><span><b>F3</b> Browser console has no CORS or CSP errors</span></label>
+<label><input type="checkbox"><span><b>F4</b> Cost analysis checked; nothing unexpected</span></label>
+<label><input type="checkbox"><span><b>F5</b> Secrets scan (T028) passes; no token or password in git history</span></label>
+<label><input type="checkbox"><span><b>F6</b> URLs recorded in the README; tasks T021-T028 updated by you in the spec</span></label></div>
+
+<h2>One-page smoke test</h2>
+<pre data-lang="powershell"><code>curl https://$API.azurewebsites.net/health
+curl -i https://$API.azurewebsites.net/api/admin/ping                    # expect 401 (no token)
+$users = curl https://$API.azurewebsites.net/api/dev/users | ConvertFrom-Json
+$users | Select-Object -First 5</code></pre>
+
+<h2>Troubleshooting decision tree</h2>
+<pre data-lang="ascii"><code>Site shows config error?      → config.json missing/HTML/trailing slash
+Login list empty or fails?    → open DevTools Network
+   CORS error                 → Cors__AllowedOrigin must equal the page origin
+   CSP error                  → staticwebapp.config.json connect-src
+   500 / 503                  → az webapp log tail (startup exception?)
+   "Invalid object name"      → tables not created (Part C)
+   SQL login/firewall error   → firewall rules, connection string
+   Very slow first call       → cold start (F1) or database resuming. Normal on free tiers</code></pre>
+</div><div class="pager"><a href="12-cost.html">← Cost and cleanup</a><a href="14-interview.html">Interview and quiz →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

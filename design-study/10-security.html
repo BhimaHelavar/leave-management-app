@@ -1,0 +1,88 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Security and privacy · LMS Design Study</title><meta name="description" content="AuthN, AuthZ, JWT, audit, data protection, threats">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html" class="cur">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Security and privacy design</h1>
+<p class="lead">Security is a design property, not a feature added at the end. The LMS holds personal and sometimes health-related data (sick leave), so it is a good case study.</p>
+
+<h2>AuthN vs AuthZ</h2>
+<div class="journey" data-steps='[
+{"t":"<b>Authentication (who are you?)</b>: the person picks a demo user (Dev) or signs in with Entra ID. The API issues/validates a JWT.","nodes":["s1"]},
+{"t":"<b>The token</b> carries sub (id), name, email and one role per role. The browser keeps it in memory only.","nodes":["s2"]},
+{"t":"<b>Every request</b>: the API checks signature, issuer, audience and expiry. No valid token = 401 (not audited: no known person).","nodes":["s3"]},
+{"t":"<b>Authorization (what may you do?)</b>: a fallback policy denies by default; role policies RequireManager/HR/Admin guard endpoints. Failing = 403.","nodes":["s4"]},
+{"t":"<b>Resource check</b>: is this request yours, or your report&apos;s, or are you HR? Not visible = 404.","nodes":["s5"]},
+{"t":"<b>Audit</b>: a 403 for a signed-in person writes an AccessDenied row (route pattern, policy, actor id).","nodes":["s6"]}]'>
+<div class="flow"><svg viewBox="0 0 760 90">
+<g class="node" data-n="s1"><rect x="5" y="20" width="110" height="50" rx="8"/><text x="60" y="50" text-anchor="middle">1 AuthN</text></g>
+<g class="node" data-n="s2"><rect x="130" y="20" width="110" height="50" rx="8"/><text x="185" y="50" text-anchor="middle">2 Token</text></g>
+<g class="node" data-n="s3"><rect x="255" y="20" width="120" height="50" rx="8"/><text x="315" y="50" text-anchor="middle">3 Validate</text></g>
+<g class="node" data-n="s4"><rect x="390" y="20" width="110" height="50" rx="8"/><text x="445" y="50" text-anchor="middle">4 Role policy</text></g>
+<g class="node" data-n="s5"><rect x="515" y="20" width="120" height="50" rx="8"/><text x="575" y="50" text-anchor="middle">5 Ownership</text></g>
+<g class="node" data-n="s6"><rect x="650" y="20" width="100" height="50" rx="8"/><text x="700" y="50" text-anchor="middle">6 Audit</text></g>
+</svg></div>
+<div class="ctl"><button class="b g pv">← Back</button><button class="b nx">Next →</button><button class="b g pl">Auto-play</button></div><div class="say"></div></div>
+
+<table><tr><th>Concept</th><th>Meaning</th><th>LMS</th></tr>
+<tr><td>RBAC</td><td>Access by role</td><td>Employee, Manager, HR, Admin (additive)</td></tr>
+<tr><td>Resource-based / ABAC</td><td>Access by relationship to the data</td><td>"My direct report's request"</td></tr>
+<tr><td>Deny by default</td><td>A forgotten check denies, not exposes</td><td>Fallback policy requires a signed-in person</td></tr>
+<tr><td>Least privilege</td><td>Only what is needed</td><td>API DB user can INSERT/SELECT audit, not UPDATE/DELETE</td></tr>
+<tr><td>Defence in depth</td><td>Several layers</td><td>Angular guard + API policy + ownership + DB constraints</td></tr></table>
+<div class="callout"><b class="t">Why hiding a button is not security</b>Angular guards improve usability. Anyone can call the API with curl, so every rule is enforced again on the server.</div>
+
+<h2>Token storage trade-off</h2>
+<table><tr><th>Where</th><th>Risk</th><th>LMS</th></tr>
+<tr><td>localStorage</td><td>Readable by injected script (XSS)</td><td>Not used</td></tr>
+<tr><td>Memory (signal)</td><td>Lost on reload (sign in again)</td><td>Dev mode</td></tr>
+<tr><td>sessionStorage</td><td>Per tab; still readable by XSS</td><td>Entra mode (planned)</td></tr>
+<tr><td>HttpOnly cookie via BFF</td><td>CSRF needs care, safest for tokens</td><td>Production upgrade</td></tr></table>
+<p>Entra ID uses <b>authorization code flow with PKCE</b> (MSAL): the SPA has no client secret.</p>
+<div class="callout warn"><b class="t">Dev mode is not security</b><code>Auth:Mode=Dev</code> lets anyone pick any demo user. The startup check allows it only in Development or Demo, and the signing key must be 32+ characters.</div>
+
+<h2>Audit: BR-07 made real</h2>
+<ul><li>Every apply, approve, reject, cancel, balance change and refusal writes an <code>AuditEvent</code> in the <b>same transaction</b> as the change.</li><li>Row holds ids and values (<code>{from:Pending,to:Approved}</code>), never names, emails or free text.</li><li><b>Immutable in 3 layers:</b> (1) permissions (INSERT, SELECT only); (2) a trigger that throws on UPDATE/DELETE; (3) later, a hash chain for tamper evidence.</li></ul>
+
+<h2>Threats to know (STRIDE-lite with LMS cases)</h2>
+<table><tr><th>Threat</th><th>Example</th><th>Defence</th></tr>
+<tr><td>Spoofing</td><td>Pretend to be a manager</td><td>Token validation; caller from token only</td></tr>
+<tr><td>Tampering</td><td>Change <code>daysCount</code> in the body</td><td>Server computes it; DB CHECKs</td></tr>
+<tr><td>Repudiation</td><td>"I never approved that"</td><td>Immutable audit</td></tr>
+<tr><td>Information disclosure</td><td>Guess <code>/leave-requests/102</code></td><td>Ownership check, 404; sick reasons only for approver/HR</td></tr>
+<tr><td>Denial of service</td><td>Hammer the dev token endpoint</td><td>Rate limit (30 a minute on dev endpoints)</td></tr>
+<tr><td>Elevation of privilege</td><td>Employee calls Admin endpoint</td><td>Role policy; 403 audited</td></tr></table>
+<h3>OWASP essentials</h3>
+<table><tr><th>Risk</th><th>LMS answer</th></tr>
+<tr><td>Broken access control</td><td>Policies + ownership checks + authorization tests per endpoint</td></tr>
+<tr><td>Injection</td><td>EF Core parameterised queries; no string-built SQL</td></tr>
+<tr><td>Security misconfiguration</td><td>Security headers, one-origin CORS, no stack traces</td></tr>
+<tr><td>Vulnerable components</td><td>Package audit in CI</td></tr>
+<tr><td>Secrets exposure</td><td>No secrets in repo; repo-guard scan; env vars / vault</td></tr>
+<tr><td>Logging failures</td><td>Structured logs with traceId, no personal data</td></tr></table>
+
+<h2>Data protection (DPDP Act 2023 and GDPR, planning notes)</h2>
+<p><i>Planning aid, not legal advice; verify with a professional.</i></p>
+<table><tr><th>Principle</th><th>Design response</th></tr>
+<tr><td>Minimise data</td><td>Only what leave needs; sick reason and certificates are the most sensitive</td></tr>
+<tr><td>Purpose limitation, access control</td><td>Reasons visible to approver and HR only</td></tr>
+<tr><td>Retention</td><td>Leave records 7 years after employment (placeholder); certificates 1 year; retention job</td></tr>
+<tr><td>Access request</td><td>HR "export my data" (BR-17)</td></tr>
+<tr><td>No personal data in logs/audit/outbox</td><td>Ids and values only</td></tr>
+<tr><td>Erasure vs audit</td><td>No hard deletes; plan anonymisation for departed staff rather than deleting audit rows</td></tr></table>
+
+<h2>Security checklist for any new system</h2>
+<div class="checklist" data-key="sec"><span class="prog"></span>
+<label><input type="checkbox"><span>Who can do what (role matrix) written down</span></label>
+<label><input type="checkbox"><span>Deny by default; every endpoint has a policy or is explicitly public</span></label>
+<label><input type="checkbox"><span>Ownership check on every id lookup</span></label>
+<label><input type="checkbox"><span>Caller identity from the token, never the body</span></label>
+<label><input type="checkbox"><span>Server validates everything; DB constraints as backup</span></label>
+<label><input type="checkbox"><span>Secrets out of source control</span></label>
+<label><input type="checkbox"><span>Audit trail for sensitive actions, immutable</span></label>
+<label><input type="checkbox"><span>No personal data in logs; retention rule defined</span></label>
+<label><input type="checkbox"><span>Rate limits and error messages that leak nothing</span></label></div>
+
+<div class="quiz"><div class="q" data-a="2"><b>A user asks for another person's request id and it exists but is not theirs. Best answer?</b><button class="opt">403</button><button class="opt">200 with empty body</button><button class="opt">404, so ids cannot be probed (the reason goes to the log)</button><div class="why">403 confirms the id exists.</div></div></div>
+</div><div class="pager"><a href="09-nfr-scaling.html">← NFRs and scaling</a><a href="11-patterns.html">Architect&#x27;s pattern catalog →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

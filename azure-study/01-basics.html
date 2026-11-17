@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Azure basics · LMS Azure Study</title><meta name="description" content="Tenant, subscription, resource group, region, ARM, free account, budget, CLI">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html" class="cur">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Azure basics: the words everyone uses</h1>
+<p class="lead">Azure is a rented data centre. You do not buy servers; you create <b>resources</b> and pay for what they use. First learn how Azure organises them.</p>
+
+<h2>The hierarchy</h2>
+<pre data-lang="ascii"><code>Microsoft Entra tenant      = your organisation's identity directory (users, apps)
+ └─ Subscription            = the billing account. Costs and limits live here
+     └─ Resource group      = a folder of resources that share a life (create/delete together)
+         └─ Resource        = one thing: a web app, a database, a key vault…</code></pre>
+<table><tr><th>Word</th><th>Meaning</th><th>LMS example</th></tr>
+<tr><td>Tenant</td><td>The identity directory (Entra ID). Users and app registrations live here.</td><td>Your personal Microsoft account creates a default tenant</td></tr>
+<tr><td>Subscription</td><td>Where the bill goes. A free account gives credit plus always-free amounts.</td><td>One subscription for the demo</td></tr>
+<tr><td>Resource group</td><td>A folder. Delete the group, everything inside goes.</td><td><code>rg-lms-demo</code></td></tr>
+<tr><td>Region</td><td>The data-centre location. Price, features and free quota differ per region.</td><td>South India (Chennai), fall back to Central India, then Southeast Asia</td></tr>
+<tr><td>Resource</td><td>One service instance.</td><td><code>lms-api-xyz</code> (web app), <code>lms-sql-xyz</code> (SQL server)</td></tr>
+<tr><td>ARM</td><td>Azure Resource Manager: the one API behind the portal, CLI and Bicep.</td><td>Every command you run ends up as an ARM call</td></tr></table>
+
+<div class="callout"><b class="t">Why resource groups matter</b>Put the whole LMS demo in one group. At the end of the project one command removes everything and stops all cost: <code>az group delete -n rg-lms-demo</code>.</div>
+
+<h2>Free account: what to expect</h2>
+<ul><li>New accounts usually get a time-limited credit plus a list of "always free" services. <b>The exact amounts change.</b> Read your own account page; I could not open the free-account page when writing this, so I give no numbers.</li>
+<li>The LMS plan deliberately uses services that have a free tier of their own: Static Web Apps Free, App Service F1, and the Azure SQL free offer.</li>
+<li>Free tiers have limits and usually <b>no SLA</b> (no uptime promise). That is fine for a portfolio demo and worth saying in an interview.</li></ul>
+
+<h2>Step 1: install the tools and sign in</h2>
+<pre data-lang="powershell"><code>winget install -e --id Microsoft.AzureCLI
+az --version
+az login
+az account show --query "{name:name, id:id}" -o table
+az account list -o table
+# if you have several subscriptions:
+az account set --subscription "&lt;subscription name or id&gt;"</code></pre>
+<div class="term" data-lines='["$ az login","A web browser has been opened at https://login.microsoftonline.com/...","$ az account show --query name -o tsv","Azure subscription 1","$ az group create -n rg-lms-demo -l southindia","{ \"name\": \"rg-lms-demo\", \"location\": \"southindia\", \"properties\": { \"provisioningState\": \"Succeeded\" } }"]'></div>
+<p>Commands in these notes are written for <b>PowerShell</b>. Variables look like <code>$RG</code>. In Command Prompt use <code>set RG=...</code> and <code>%RG%</code>.</p>
+
+<h2>Step 2: create the resource group (and test the region)</h2>
+<pre data-lang="powershell"><code>$RG  = "rg-lms-demo"
+$LOC = "southindia"          # change if a later step says the free tier is not offered here
+az group create -n $RG -l $LOC
+az provider register --namespace Microsoft.Web
+az provider register --namespace Microsoft.Sql
+az provider register --namespace Microsoft.Insights
+az provider show -n Microsoft.Web --query registrationState -o tsv</code></pre>
+<div class="callout"><b class="t">What is a resource provider?</b>Each service family (Web, Sql, Insights…) is a provider that must be "registered" on your subscription once. New subscriptions sometimes fail with <i>MissingSubscriptionRegistration</i>. Registering fixes it.</div>
+
+<h2>Step 3: put a budget on it (do this before anything else)</h2>
+<p>Spec T-02 asks for a budget of about 1 USD a month with alerts at 50 % and 100 % and a forecast alert. A budget <b>only sends emails</b>; it does <b>not</b> stop spending. Brand-new subscriptions can take up to 48 hours before budgets can be created, so try it early.</p>
+<ol><li>Portal → <b>Cost Management + Billing</b> → <b>Budgets</b> → <b>Add</b>.</li><li>Scope: the subscription (or the resource group). Amount: the smallest value your currency allows.</li><li>Alerts: 50 % actual, 100 % actual, 100 % forecasted. Add your email.</li><li>Create an <b>action group</b> and press <b>Test</b> to prove the email arrives.</li></ol>
+
+<h3>Naming and tagging</h3>
+<table><tr><th>Thing</th><th>Pattern</th><th>Why</th></tr>
+<tr><td>Resource group</td><td><code>rg-&lt;app&gt;-&lt;env&gt;</code></td><td>Sorts well, tells you the purpose</td></tr>
+<tr><td>Globally unique names (web app, SQL server, storage)</td><td><code>lms-api-&lt;suffix&gt;</code></td><td>These become public DNS names, so they must be unique worldwide</td></tr>
+<tr><td>Tags</td><td><code>app=lms env=demo owner=you</code></td><td>Cost reports can group by tag</td></tr></table>
+
+<h2>Check yourself</h2>
+<div class="quiz"><div class="q" data-a="1"><b>What happens when you delete a resource group?</b><button class="opt">Only the group label is removed</button><button class="opt">Every resource inside is deleted</button><button class="opt">Resources move to the default group</button><div class="why">Deleting the group deletes everything in it. That is why one group per environment is a good habit.</div></div>
+<div class="q" data-a="2"><b>Does a budget stop a service when the amount is reached?</b><button class="opt">Yes, always</button><button class="opt">Only for free tiers</button><button class="opt">No, it only sends alerts</button><div class="why">A budget notifies. To stop spending you delete or stop the resource (or use an automation triggered by the alert).</div></div></div>
+</div><div class="pager"><a href="00-start.html">← Start here</a><a href="02-architecture.html">Architecture →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

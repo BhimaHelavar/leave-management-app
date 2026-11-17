@@ -1,0 +1,47 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Start here · LMS Azure Study</title><meta name="description" content="What you will learn and the order to learn it">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html" class="cur">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><span class="tag">Study notes</span><span class="tag">Azure</span>
+<h1>Deploy the Leave Management System on Azure</h1>
+<p class="lead">Step by step, with the reason behind every step. After these notes you can deploy the LMS yourself and explain every Azure service you used in an interview.</p>
+
+<div class="card"><b>The goal in one picture</b>
+<p>Your laptop today: Angular on <code>localhost:4200</code>, .NET API on <code>localhost:5000</code>, SQL Server LocalDB. On Azure the same three parts live in three different services:</p>
+<table><tr><th>Part</th><th>Locally</th><th>On Azure (decided in spec T-02)</th></tr>
+<tr><td>Web (Angular)</td><td>ng serve / nginx</td><td><b>Static Web Apps</b> (Free)</td></tr>
+<tr><td>API (.NET 10)</td><td>dotnet run / Docker</td><td><b>App Service</b> on Linux (F1 free now, B1 later)</td></tr>
+<tr><td>Database</td><td>LocalDB / SQL container</td><td><b>Azure SQL Database</b> (free offer, auto-pause)</td></tr>
+<tr><td>Build and ship</td><td>you, by hand</td><td><b>GitHub Actions</b> (manual deploy workflow)</td></tr></table></div>
+
+<h2>How to use these notes</h2>
+<div class="grid">
+<div class="card"><b>1. Read a page</b><br>Each topic goes: what it is, how it works, why, when. Then the exact LMS commands.</div>
+<div class="card"><b>2. Play with it</b><br>Press <i>Next</i> on the request journey, tick checklists, answer the quizzes. Progress is saved in your browser.</div>
+<div class="card"><b>3. Deploy for real</b><br>Follow <a href="13-runbook.html">the runbook</a> with the checklist. Copy buttons are on every code block.</div></div>
+
+<div class="callout warn"><b class="t">Honest status of these notes</b>
+I wrote the commands from the repo (Program.cs, Dockerfiles, specs) and from Microsoft documentation pages I read. I could not run anything against a real Azure subscription, and I had no .NET SDK or Docker here. The Bicep file compiles with Bicep CLI 0.49.2. Every command is a draft for you to run and check. Where a flag name might have changed, the page says "check with <code>-h</code>".</div>
+
+<div class="callout gap"><b class="t">One real gap you must handle</b>
+In <code>Program.cs</code> the database migration and demo data run <b>only</b> when the environment is <code>Development</code>. Azure runs as <code>Demo</code>, so <b>nothing creates the tables for you</b>. <a href="03-sql.html">The SQL page</a> shows two safe ways to do it.</div>
+
+<h2>The learning path</h2>
+<table><tr><th>#</th><th>Page</th><th>You will be able to…</th></tr>
+<tr><td>1</td><td><a href="01-basics.html">Azure basics</a></td><td>explain tenant, subscription, resource group, region, ARM; set a budget</td></tr>
+<tr><td>2</td><td><a href="02-architecture.html">Architecture</a></td><td>draw the LMS on Azure and compare hosting options</td></tr>
+<tr><td>3</td><td><a href="03-sql.html">Azure SQL</a></td><td>create the free database, firewall, migrate, seed</td></tr>
+<tr><td>4</td><td><a href="04-api.html">API on App Service</a></td><td>create plan and web app, settings, deploy a zip</td></tr>
+<tr><td>5</td><td><a href="05-web.html">Angular on Static Web Apps</a></td><td>deploy, write config.json and staticwebapp.config.json</td></tr>
+<tr><td>6</td><td><a href="06-secrets.html">Config, secrets, identity</a></td><td>use app settings, Key Vault, managed identity, Entra ID</td></tr>
+<tr><td>7</td><td><a href="07-cicd.html">CI/CD</a></td><td>write the deploy workflow, use OIDC instead of passwords</td></tr>
+<tr><td>8</td><td><a href="08-bicep.html">Infrastructure as code</a></td><td>create everything from one Bicep file</td></tr>
+<tr><td>9</td><td><a href="09-security.html">Security and networking</a></td><td>CORS, TLS, headers, firewall, private endpoints (concept)</td></tr>
+<tr><td>10</td><td><a href="10-monitoring.html">Monitoring</a></td><td>Application Insights, logs, KQL, alerts</td></tr>
+<tr><td>11</td><td><a href="11-more-services.html">Other Azure services</a></td><td>cache, queues, storage, containers, AKS, Functions: when to use which</td></tr>
+<tr><td>12</td><td><a href="12-cost.html">Cost and cleanup</a></td><td>stay inside the free tier, delete safely</td></tr>
+<tr><td>13</td><td><a href="13-runbook.html">Deploy-day runbook</a></td><td>do the whole deployment in order</td></tr>
+<tr><td>14</td><td><a href="14-interview.html">Interview and quiz</a></td><td>answer Azure questions with LMS examples</td></tr></table>
+</div><div class="pager"><span></span><a href="01-basics.html">Azure basics →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

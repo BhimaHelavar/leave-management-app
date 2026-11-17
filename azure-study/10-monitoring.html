@@ -1,0 +1,55 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitoring · LMS Azure Study</title><meta name="description" content="Application Insights, Log Analytics, KQL, health checks, alerts">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html" class="cur">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Monitoring: know when it breaks</h1>
+<p class="lead">Logs tell you what happened, metrics tell you how much, traces tell you where the time went. Azure collects all three in one place.</p>
+
+<h2>The pieces</h2>
+<table><tr><th>Service</th><th>What it is</th></tr>
+<tr><td><b>Azure Monitor</b></td><td>The umbrella: metrics, logs, alerts, dashboards</td></tr>
+<tr><td><b>Log Analytics workspace</b></td><td>The database where logs are stored and queried with KQL</td></tr>
+<tr><td><b>Application Insights</b></td><td>Monitoring for your <i>app</i>: requests, exceptions, dependencies (SQL calls), timings. Stores its data in a Log Analytics workspace</td></tr>
+<tr><td><b>Health check</b></td><td>Azure pings <code>/health</code> and replaces an unhealthy instance. The LMS already has <code>/health</code></td></tr></table>
+<p>There is a small free monthly data allowance for Application Insights/Log Analytics ingestion (I believe about 5 GB, but I did not verify the current number; check the pricing page). Set a <b>daily cap</b> so a noisy log cannot cost money.</p>
+
+<h2>Turn it on for the API</h2>
+<pre data-lang="powershell"><code>az monitor log-analytics workspace create -g $RG -n log-lms-demo -l $LOC
+$WSID = az monitor log-analytics workspace show -g $RG -n log-lms-demo --query id -o tsv
+az monitor app-insights component create -g $RG -a ai-lms-demo -l $LOC --workspace $WSID --kind web
+$CS = az monitor app-insights component show -g $RG -a ai-lms-demo --query connectionString -o tsv
+az webapp config appsettings set -g $RG -n $API --settings "APPLICATIONINSIGHTS_CONNECTION_STRING=$CS"</code></pre>
+<p>The App Insights SDK must be in the app to send data. That is a NuGet package (<code>Azure.Monitor.OpenTelemetry.AspNetCore</code>) and one line in <code>Program.cs</code>: <code>builder.Services.AddOpenTelemetry().UseAzureMonitor();</code>. <b>The LMS does not have it yet, and adding a package needs your approval</b>, so I did not change code.</p>
+
+<h2>KQL: the query language</h2>
+<p>Read a query top to bottom; each <code>|</code> passes rows to the next step, like a shell pipe.</p>
+<pre data-lang="kql"><code>// the slowest API calls in the last hour
+requests
+| where timestamp &gt; ago(1h)
+| summarize calls=count(), p95=percentile(duration, 95) by name
+| order by p95 desc
+
+// failures per endpoint
+requests
+| where success == false
+| summarize failures=count() by name, resultCode
+| order by failures desc
+
+// 403 spikes (your audited AccessDenied cases)
+requests | where resultCode == "403" | summarize count() by bin(timestamp, 5m)
+
+// exceptions with their message
+exceptions | project timestamp, type, outerMessage | order by timestamp desc | take 20</code></pre>
+
+<h2>Alerts</h2>
+<ul><li>Alert on <b>symptoms users feel</b>: HTTP 5xx count, health check failing, response time p95.</li>
+<li>Pieces: <b>rule</b> (condition) → <b>action group</b> (email / SMS / webhook).</li></ul>
+<pre data-lang="powershell"><code>az monitor action-group create -g $RG -n ag-lms --short-name lms --action email me you@example.com
+$APPID = az webapp show -g $RG -n $API --query id -o tsv
+az monitor metrics alert create -g $RG -n api-5xx --scopes $APPID --condition "total Http5xx &gt; 5" --window-size 5m --evaluation-frequency 1m --action ag-lms</code></pre>
+
+<h2>The three questions when something is wrong</h2>
+<ol><li><b>Is it up?</b> <code>curl /health</code>. Database field says Unreachable → SQL (paused? firewall? string?).</li><li><b>What error?</b> <code>az webapp log tail</code> or the <code>exceptions</code> table.</li><li><b>Since when?</b> Compare with the last deploy time (GitHub Actions run history).</li></ol>
+</div><div class="pager"><a href="09-security.html">← Security and networking</a><a href="11-more-services.html">Other Azure services →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

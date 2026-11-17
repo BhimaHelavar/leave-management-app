@@ -1,0 +1,84 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HLD · LMS Design Study</title><meta name="description" content="C4 diagrams, containers, modular monolith, layers, one request end to end, ADRs">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html" class="cur">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>High-level design (HLD)</h1>
+<p class="lead">HLD answers one question: <b>what are the big parts, and how do they talk?</b> It ignores classes and columns. It shows boxes, arrows and the reasons.</p>
+
+<h2>C4: zoom in step by step</h2>
+<pre data-lang="ascii"><code>Level 1  CONTEXT      Leave Management App   ← people and outside systems around ONE box
+                      Employee Manager HR Admin ──► [LMS] ──► Email service ; [LMS] ··► Entra ID
+Level 2  CONTAINER    web (Angular) ► api (ASP.NET Core) ► db (SQL Server) ; api ► mail
+Level 3  COMPONENT    inside api: Endpoints → Use cases → Domain ; Infrastructure implements interfaces
+Level 4  CODE         classes (LLD, next pages)</code></pre>
+<p><b>Why four levels?</b> Different people need different zoom. A manager needs level 1; a new developer level 2 and 3. <i>Interview line:</i> "Context shows the system as one box with its neighbours. Container opens it into runnable parts. Component opens one container."</p>
+
+<h2>Containers of the LMS (animated request journey)</h2>
+<div class="journey" data-steps='[
+{"t":"The employee fills the Apply screen in the Angular app. It first calls POST /leave-requests/preview, which uses the same server rules as submit.","nodes":["web"]},
+{"t":"Submit: POST /api/v1/leave-requests with an Idempotency-Key and the JWT. The API checks the token and role policy.","nodes":["web","api"]},
+{"t":"The use case plans the request: counts working days with the holidays, checks the rules (notice, max days, half day).","nodes":["api"]},
+{"t":"ONE database transaction: insert request, day rows, guarded balance update, ledger row, audit row, idempotency record, outbox row.","nodes":["api","db"]},
+{"t":"201 Created goes back. The employee is done in well under a second.","nodes":["api","web"]},
+{"t":"Later, in the background, the worker reads unsent outbox rows and sends the email to the manager. (RabbitMQ replaces polling in increment 4g.)","nodes":["worker","db","mail"]},
+{"t":"The manager sees the request in the inbox and approves with If-Match; the status changes in one transaction and an email goes to the employee.","nodes":["web","api","db"]}]'>
+<div class="flow"><svg viewBox="0 0 760 270" role="img" aria-label="LMS container diagram">
+<path class="link" d="M110 80 H200"/><path class="link" d="M310 80 H400"/><path class="link" d="M300 120 Q 300 190 360 200"/><path class="link" d="M500 200 H560"/><path class="link" d="M460 110 V160"/>
+<g class="node" data-n="web"><rect x="10" y="40" width="100" height="80" rx="12"/><text x="60" y="75" text-anchor="middle">Angular</text><text class="sub" x="60" y="95" text-anchor="middle">web app</text></g>
+<g class="node" data-n="api"><rect x="200" y="40" width="110" height="80" rx="12"/><text x="255" y="75" text-anchor="middle">API</text><text class="sub" x="255" y="95" text-anchor="middle">ASP.NET Core 10</text></g>
+<g class="node" data-n="db"><rect x="400" y="40" width="110" height="80" rx="12"/><text x="455" y="75" text-anchor="middle">SQL Server</text><text class="sub" x="455" y="95" text-anchor="middle">data + outbox</text></g>
+<g class="node" data-n="worker"><rect x="360" y="170" width="140" height="60" rx="12"/><text x="430" y="198" text-anchor="middle">Worker</text><text class="sub" x="430" y="216" text-anchor="middle">BackgroundService</text></g>
+<g class="node" data-n="mail"><rect x="560" y="170" width="110" height="60" rx="12"/><text x="615" y="205" text-anchor="middle">Email</text></g>
+</svg></div>
+<div class="ctl"><button class="b g pv">← Back</button><button class="b nx">Next →</button><button class="b g pl">Auto-play</button></div><div class="say"></div></div>
+
+<div class="callout ok"><b class="t">What to notice</b>The employee waits only for steps 1 to 5. Slow things (email) are moved out of the request. That is the most common HLD idea: <b>do the essential work now, the rest later, and never lose it.</b></div>
+
+<h2>Modular monolith: one app, clear rooms</h2>
+<pre data-lang="ascii"><code>┌──────────────────────── one deployable API ───────────────────────┐
+│  People module   Balances+Policy   Leave module    Notify module   │
+│  (Employee,      (LeaveType,       (LeaveRequest,  (Outbox,        │
+│   Roles)          Balance, Ledger)  Day, Idemp.)    Processed)     │
+│        borders = schemas people / balances / leave / notify / audit │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               ▼  one SQL Server database</code></pre>
+<table><tr><th>Option</th><th>Good</th><th>Cost</th><th>When to choose</th></tr>
+<tr><td><b>Monolith (plain)</b></td><td>Simplest</td><td>Becomes a ball of mud without discipline</td><td>Prototype</td></tr>
+<tr><td><b>Modular monolith (LMS)</b></td><td>One deploy, one transaction, clear borders, can split later</td><td>Borders kept by discipline and tests</td><td><b>Default</b> for one team and moderate scale</td></tr>
+<tr><td><b>Microservices</b></td><td>Independent scaling, releases, teams</td><td>Network failures, distributed data, many pipelines, observability cost</td><td>Many teams, parts with very different scale or release speed</td></tr></table>
+<div class="callout warn"><b class="t">The honest cross-module exception</b>Apply leave must change request, balance and audit <b>atomically</b>. Splitting them into separate services would need distributed transactions. The repo's constitution allows one named Application-level store (<code>ILeaveApplicationStore</code>) to write across modules in one database transaction. That is a real reason to stay a monolith.</div>
+
+<h2>Layers: Clean Architecture</h2>
+<pre data-lang="ascii"><code>   Api ───────────────┐   endpoints, auth, config, wiring (composition root)
+   Infrastructure ────┤   EF Core, SQL Server, outbox writer, SMTP, clock
+                      ▼
+   Application  ─────► Domain      use cases + interfaces   │  entities + business rules
+   (depends on Domain)             (depends on NOTHING)</code></pre>
+<p><b>Dependency rule:</b> arrows point inward. Domain never knows EF Core or ASP.NET. <b>Payoff:</b> the notice rule runs in a unit test with a fixed "today" and no database.</p>
+<table><tr><th>Layer</th><th>Holds</th><th>LMS example</th></tr>
+<tr><td>Domain</td><td>Entities, enums, pure rules</td><td><code>LeaveRules</code>, <code>WorkingDayCalculator</code></td></tr>
+<tr><td>Application</td><td>Use cases, DTOs, interfaces (ports)</td><td><code>ApplyForLeave</code>, <code>ILeaveApplicationStore</code></td></tr>
+<tr><td>Infrastructure</td><td>Adapters to the outside</td><td>EF Core store, <code>AuditWriter</code></td></tr>
+<tr><td>Api</td><td>HTTP and wiring</td><td>endpoint files, <code>AuthSetup</code></td></tr></table>
+
+<h2>Decisions (ADRs) from the HLD</h2>
+<table><tr><th>#</th><th>Decision</th><th>Chosen over</th><th>Why</th><th>Trade-off</th></tr>
+<tr><td>1</td><td>Modular monolith</td><td>Microservices</td><td>One developer, one DB, no part needs own scale</td><td>Borders by discipline</td></tr>
+<tr><td>2</td><td>Clean Architecture</td><td>Layers by type</td><td>Rules testable without DB</td><td>More projects, mapping</td></tr>
+<tr><td>3</td><td>SQL Server</td><td>PostgreSQL</td><td>.NET shop, EF Core support, interview relevance</td><td>Heavier container</td></tr>
+<tr><td>4</td><td>Outbox for email</td><td>Send in request; broker only</td><td>Request and email-note saved atomically</td><td>Email seconds later; at-least-once</td></tr>
+<tr><td>5</td><td>Dev and Entra auth by config</td><td>One mode only</td><td>Offline demo plus real enterprise sign-in</td><td>Must block Dev outside dev (startup check)</td></tr>
+<tr><td>6</td><td>Plain use-case classes</td><td>MediatR</td><td>Fewer moving parts, teaches DI</td><td>A bit more wiring</td></tr>
+<tr><td>7</td><td><code>DateOnly</code> for leave days, UTC timestamps</td><td>DateTime everywhere</td><td>A day is not a moment</td><td>Care when displaying</td></tr>
+<tr><td>8</td><td>docker compose first, cloud later</td><td>Cloud first</td><td>One command runs everything</td><td>Cloud unproven at first</td></tr></table>
+
+<h2>Later increments (they plug in without reshaping)</h2>
+<pre data-lang="ascii"><code>web ─► api ─► db            + Redis/HybridCache  (cache holidays and leave types, NOT balances)
+        │                   + RabbitMQ          (outbox relay publishes; worker consumes; dead-letter queue)
+        └─► Entra ID        + SignalR           (live inbox, sprint 11)</code></pre>
+
+<div class="quiz"><div class="q" data-a="1"><b>Why can the LMS not split balances and leave into two services easily?</b><button class="opt">Different languages</button><button class="opt">Apply must update request, balance and audit in ONE transaction</button><button class="opt">SQL Server forbids it</button><div class="why">Distributed transactions are costly and fragile; a monolith gives atomicity for free.</div></div>
+<div class="q" data-a="2"><b>The Domain layer depends on…</b><button class="opt">EF Core</button><button class="opt">The Application layer</button><button class="opt">Nothing</button><div class="why">Dependencies point inward; Domain is the center.</div></div></div>
+</div><div class="pager"><a href="02-method.html">← The design method</a><a href="04-hld-patterns.html">HLD patterns (live demos) →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

@@ -1,0 +1,60 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The design method · LMS Design Study</title><meta name="description" content="A 7-step recipe to design any system, shown on the LMS">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html" class="cur">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>The design method: seven steps for any system</h1>
+<p class="lead">Interviewers do not want a perfect answer; they want to see a <b>repeatable way of thinking</b>. Use this order every time. Click a step to see it applied to the LMS.</p>
+
+<div class="journey" data-steps='[
+{"t":"<b>1 Clarify.</b> Who uses it? What is in and out of scope? LMS: 4 roles, one location, leave only (no payroll).","nodes":["n1"]},
+{"t":"<b>2 Requirements.</b> Functional (apply, approve, cancel, balance) and non-functional (p95 300 ms, 99.5 %, audit 100 %).","nodes":["n2"]},
+{"t":"<b>3 Estimate.</b> 300 users, 5,000 requests a year ≈ 20 a day. Tiny: one app, one database.","nodes":["n3"]},
+{"t":"<b>4 Interface.</b> The API: POST /leave-requests, POST /{id}/approve, errors with codes.","nodes":["n4"]},
+{"t":"<b>5 Data model.</b> Employee, LeaveType, LeaveRequest, LeaveRequestDay, LeaveBalance, ledger. Constraints that protect the rules.","nodes":["n5"]},
+{"t":"<b>6 High-level design.</b> Web, API (modular monolith), SQL Server, outbox + worker, later cache and queue.","nodes":["n6"]},
+{"t":"<b>7 Deep dive and trade-offs.</b> Race on balance, double submit, two managers, email reliability. Say what you chose and what you rejected.","nodes":["n7"]}]'>
+<div class="flow"><svg viewBox="0 0 760 130" role="img" aria-label="Seven design steps">
+<path class="link" d="M95 65 H105"/><path class="link" d="M205 65 H215"/>
+<g class="node" data-n="n1"><rect x="5" y="30" width="95" height="70" rx="10"/><text x="52" y="58" text-anchor="middle">1 Clarify</text><text class="sub" x="52" y="78" text-anchor="middle">scope</text></g>
+<g class="node" data-n="n2"><rect x="108" y="30" width="95" height="70" rx="10"/><text x="155" y="58" text-anchor="middle">2 Require</text><text class="sub" x="155" y="78" text-anchor="middle">FR + NFR</text></g>
+<g class="node" data-n="n3"><rect x="211" y="30" width="95" height="70" rx="10"/><text x="258" y="58" text-anchor="middle">3 Estimate</text><text class="sub" x="258" y="78" text-anchor="middle">numbers</text></g>
+<g class="node" data-n="n4"><rect x="314" y="30" width="95" height="70" rx="10"/><text x="361" y="58" text-anchor="middle">4 Interface</text><text class="sub" x="361" y="78" text-anchor="middle">API</text></g>
+<g class="node" data-n="n5"><rect x="417" y="30" width="95" height="70" rx="10"/><text x="464" y="58" text-anchor="middle">5 Data</text><text class="sub" x="464" y="78" text-anchor="middle">tables</text></g>
+<g class="node" data-n="n6"><rect x="520" y="30" width="105" height="70" rx="10"/><text x="572" y="58" text-anchor="middle">6 HLD</text><text class="sub" x="572" y="78" text-anchor="middle">boxes</text></g>
+<g class="node" data-n="n7"><rect x="633" y="30" width="115" height="70" rx="10"/><text x="690" y="58" text-anchor="middle">7 Deep dive</text><text class="sub" x="690" y="78" text-anchor="middle">trade-offs</text></g>
+</svg></div>
+<div class="ctl"><button class="b g pv">← Back</button><button class="b nx">Next →</button><button class="b g pl">Auto-play</button></div><div class="say"></div></div>
+
+<h2>The seven steps in detail</h2>
+<table><tr><th>Step</th><th>Do this</th><th>Say out loud</th><th>Time in a 45-minute interview</th></tr>
+<tr><td>1 Clarify</td><td>Ask 5 questions: users, scale, must-haves, out-of-scope, constraints</td><td>"Let me confirm scope before I draw."</td><td>5 min</td></tr>
+<tr><td>2 Requirements</td><td>Write FR (top 5) and NFR (numbers)</td><td>"The hard requirement is never negative balance."</td><td>5 min</td></tr>
+<tr><td>3 Estimate</td><td>Users → requests per second → storage</td><td>"This is about 20 writes a day, so no need to shard."</td><td>3 min</td></tr>
+<tr><td>4 Interface</td><td>List endpoints or events, with errors</td><td>"Approve is an action, not a PATCH of status."</td><td>5 min</td></tr>
+<tr><td>5 Data model</td><td>Entities, keys, constraints, indexes</td><td>"The database must refuse overlap itself."</td><td>8 min</td></tr>
+<tr><td>6 HLD</td><td>Boxes and arrows, one request traced</td><td>"Request saved with its outbox row in one transaction."</td><td>8 min</td></tr>
+<tr><td>7 Deep dive</td><td>2 hard problems, trade-offs, failure modes</td><td>"If the worker crashes the row is still there."</td><td>11 min</td></tr></table>
+
+<div class="callout"><b class="t">Why this order?</b>Requirements and numbers decide the shape. People who start with "I'll use Kafka and microservices" fail because they chose a tool before knowing the problem. Your LMS decisions (modular monolith, SQL Server, outbox) came from steps 1 to 3.</div>
+
+<h2>Five questions to ask in step 1 (copy these)</h2>
+<ol><li>Who are the users and roles, and how many?</li><li>What are the 3 to 5 must-have actions?</li><li>What is the scale now and in 2 years?</li><li>What must never go wrong? (money, double booking, data loss)</li><li>What is out of scope, and what are the constraints (budget, team, stack)?</li></ol>
+
+<h2>Trade-off sentence (use it for every decision)</h2>
+<pre data-lang="template"><code>I chose [A] over [B] because [requirement/number].
+The cost is [price]; I accept it because [reason].
+I would revisit when [trigger].</code></pre>
+<p>LMS example: <i>"I chose a modular monolith over microservices because one team and 20 writes a day need no independent scaling. The cost is that module borders rely on discipline, not the network. I would revisit if one module needed its own release cycle or scale."</i></p>
+
+<h2>Common mistakes of junior answers</h2>
+<table><tr><th>Mistake</th><th>Better</th></tr>
+<tr><td>Jump to technology</td><td>Numbers first, tool last</td></tr>
+<tr><td>Draw only happy paths</td><td>Ask "what if it crashes here?" for every arrow</td></tr>
+<tr><td>Say "scalable" without a number</td><td>"50 concurrent users, p95 300 ms"</td></tr>
+<tr><td>No trade-offs</td><td>Name the rejected option and its price</td></tr>
+<tr><td>Trust the client</td><td>Validate and authorize on the server</td></tr></table>
+
+<div class="quiz"><div class="q" data-a="0"><b>You are asked to design a booking system. What first?</b><button class="opt">Clarify scope and requirements</button><button class="opt">Pick a database</button><button class="opt">Draw microservices</button><div class="why">Scope and numbers decide everything after.</div></div></div>
+</div><div class="pager"><a href="01-requirements.html">← Requirements</a><a href="03-hld.html">HLD →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

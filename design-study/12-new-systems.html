@@ -1,0 +1,81 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Design new systems · LMS Design Study</title><meta name="description" content="Reuse the LMS skeleton for expense approval, room booking and ticket booking">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html" class="cur">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Designing new systems with the LMS skeleton</h1>
+<p class="lead">Most business systems are the same four things: <b>requests that move through states, limited resources, approvals, and an audit trail</b>. Learn the skeleton once, then re-skin it.</p>
+
+<h2>The reusable skeleton</h2>
+<table><tr><th>LMS part</th><th>Generic idea</th><th>Expense claims</th><th>Room booking</th><th>Ticket booking</th></tr>
+<tr><td>LeaveRequest</td><td>A request with a state machine</td><td>ExpenseClaim</td><td>Booking</td><td>Order</td></tr>
+<tr><td>LeaveType (config table)</td><td>Rules as data</td><td>ExpenseCategory + limits</td><td>RoomType</td><td>TicketTier</td></tr>
+<tr><td>LeaveBalance + ledger</td><td>A limited quantity, guarded</td><td>Budget + spend ledger</td><td>(none, slots instead)</td><td>Stock per event</td></tr>
+<tr><td>LeaveRequestDay + unique index</td><td>"No double use" rule in the DB</td><td>Receipt hash unique</td><td>Unique (Room, Date, Slot)</td><td>Unique (Event, Seat)</td></tr>
+<tr><td>Approval by manager</td><td>Workflow</td><td>Manager then Finance</td><td>Auto-approve</td><td>Payment</td></tr>
+<tr><td>Outbox email</td><td>Reliable notification</td><td>Same</td><td>Same</td><td>Ticket email</td></tr>
+<tr><td>Idempotency key</td><td>Safe retries</td><td>Same</td><td>Same</td><td><b>Critical</b> (payment)</td></tr>
+<tr><td>AuditEvent</td><td>Who did what</td><td>Same (finance auditors)</td><td>Same</td><td>Same</td></tr></table>
+
+<h2>Case 1: Expense claim approval</h2>
+<p><b>Clarify:</b> employees submit claims with receipts; manager approves up to a limit; Finance approves above it; payment is out of scope.</p>
+<table><tr><th>Step</th><th>Answer</th></tr>
+<tr><td>Requirements</td><td>Submit, attach receipts, 2-step approval by amount, reimbursement report. NFR: audit 100 %, receipts private, p95 400 ms.</td></tr>
+<tr><td>Estimate</td><td>2,000 employees × 6 claims a year = 12,000 a year ≈ 50 a working day. Tiny. Modular monolith.</td></tr>
+<tr><td>States</td><td><code>Draft → Submitted → ManagerApproved → FinanceApproved → Paid</code>; also <code>Rejected</code>, <code>Cancelled</code></td></tr>
+<tr><td>Tables</td><td><code>ExpenseClaim(Id, EmployeeId, Total, CurrencyCode, Status, RowVersion)</code>, <code>ExpenseLine(ClaimId, CategoryId, Amount, ReceiptId)</code>, <code>ExpenseCategory(Code, DailyLimit, NeedsReceiptAbove)</code>, <code>Receipt(Id, BlobPath, Sha256)</code>, <code>ApprovalStep(ClaimId, Level, ApproverId, DecidedAtUtc)</code></td></tr>
+<tr><td>DB rules</td><td><code>CHECK (Total >= 0)</code>; unique <code>(EmployeeId, Sha256)</code> blocks the same receipt twice; money as <code>decimal(12,2)</code> + currency code, never float</td></tr>
+<tr><td>Hard problems</td><td>Approval route depends on amount (strategy by data: <code>ApprovalRule</code> table); receipts in blob storage with short-lived links; fraud: duplicate receipt</td></tr></table>
+
+<h2>Case 2: Meeting-room booking</h2>
+<p><b>Clarify:</b> 50 rooms, 30-minute slots, no double booking, recurring meetings later.</p>
+<pre data-lang="sql"><code>CREATE TABLE booking.RoomSlot (
+  RoomId int NOT NULL, SlotStartUtc datetime2(0) NOT NULL, BookingId int NOT NULL,
+  CONSTRAINT PK_RoomSlot PRIMARY KEY (RoomId, SlotStartUtc),       -- THIS is the overlap rule
+  CONSTRAINT FK_RoomSlot_Booking FOREIGN KEY (BookingId) REFERENCES booking.Booking(Id));</code></pre>
+<p>A 90-minute booking inserts 3 rows in one transaction; if any slot is taken, the primary key fails and the whole booking rolls back (409). This is exactly the LMS <code>LeaveRequestDay</code> trick. SQL Server has no range "exclusion constraint" (PostgreSQL does), so slot rows are the portable answer.</p>
+<div class="sim"><h4>Try double booking (Room A, slots 9:00 to 11:00)</h4>
+<div class="row"><span id="rb-grid"></span></div><div class="row"><button class="b g" id="rb-reset">Reset</button></div><div class="out" id="rb-say">Click slots to book them as "me". Then try a second person.</div>
+<div class="row"><label>Person <select id="rb-who"><option>Asha</option><option>Raj</option></select></label></div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);const slots=['9:00','9:30','10:00','10:30'];let tk={};function draw(){g('rb-grid').innerHTML=slots.map(s=>'<button class="b '+(tk[s]?'':'g')+'" data-s="'+s+'">'+s+(tk[s]?' ('+tk[s]+')':'')+'</button>').join(' ');g('rb-grid').querySelectorAll('button').forEach(b=>b.onclick=()=>{const s=b.dataset.s,w=g('rb-who').value;if(tk[s]&&tk[s]!==w){g('rb-say').innerHTML='<span class="bad">409: PRIMARY KEY (RoomId, SlotStart) violated.</span> '+tk[s]+' already holds '+s+'. The database refused, even with a concurrent request.'}else if(tk[s]===w){delete tk[s];g('rb-say').textContent=w+' released '+s+'.'}else{tk[s]=w;g('rb-say').innerHTML='<span class="good">'+w+' booked '+s+'.</span>'}draw()})}
+g('rb-reset').onclick=()=>{tk={};draw();g('rb-say').textContent='Reset.'};draw()})();
+</script>
+
+<h2>Case 3: Ticket booking (high contention)</h2>
+<p><b>Clarify:</b> popular concerts, 50,000 users hit "buy" at 10:00, seats must never be sold twice.</p>
+<pre data-lang="ascii"><code>Browser ─► CDN (static) ─► API ─► Queue ("waiting room") ─► Seat service ─► SQL
+                                          │
+   Step 1 HOLD seat (atomic UPDATE ... WHERE Status='Available') with expiry 5 min
+   Step 2 PAY (payment provider, idempotency key per order)
+   Step 3 CONFIRM seat (Status='Sold') ;  timeout job releases expired holds
+   Emails and PDFs: outbox → worker</code></pre>
+<pre data-lang="sql"><code>UPDATE ticket.Seat
+SET    Status = 'Held', HeldBy = @order, HoldExpiresUtc = DATEADD(minute, 5, SYSUTCDATETIME())
+WHERE  EventId = @event AND SeatNo = @seat AND Status = 'Available';   -- 0 rows = someone else got it</code></pre>
+<table><tr><th>Problem</th><th>Answer</th></tr>
+<tr><td>Spike of 50,000 users</td><td>Waiting-room queue, rate limiting, static pages on a CDN, scale API instances out</td></tr>
+<tr><td>Never sell twice</td><td>Atomic conditional UPDATE + unique (Event, Seat); never check-then-write</td></tr>
+<tr><td>Payment fails after hold</td><td>Hold expires; a job releases it; payment confirmation is idempotent</td></tr>
+<tr><td>Charged but order not saved</td><td>Saga / outbox with reconciliation; idempotency key per order</td></tr>
+<tr><td>Consistency</td><td>Strong for seats; eventual for "seats left" counters on the page</td></tr></table>
+
+<h2>A fourth warm-up: URL shortener (12 minutes)</h2>
+<ol><li><b>Requirements:</b> create short link, redirect fast (p95 &lt; 50 ms), 100 M links, 10:1 read:write.</li><li><b>Estimate:</b> 100 M × 500 bytes = 50 GB. Redirects 1,000/s average.</li><li><b>Data:</b> <code>Link(Code PK, LongUrl, CreatedAtUtc)</code>; code = base62 of a counter or random 7 characters with a unique constraint and retry.</li><li><b>HLD:</b> API → cache (hot codes) → database; CDN for popular redirects.</li><li><b>Trade-offs:</b> counter (predictable, needs a coordinator) vs random (collision retries); 301 (cacheable, no analytics) vs 302.</li></ol>
+
+<h2>Your design checklist (use on any system)</h2>
+<div class="checklist" data-key="chk"><span class="prog"></span>
+<label><input type="checkbox"><span>Scope, users, roles, scale clarified; out-of-scope named</span></label>
+<label><input type="checkbox"><span>Five FRs and measurable NFRs written</span></label>
+<label><input type="checkbox"><span>Numbers: writes/day, reads/sec, storage per year</span></label>
+<label><input type="checkbox"><span>Entities, relationships, state machine drawn</span></label>
+<label><input type="checkbox"><span>The "must never happen" rule is a DB constraint or atomic statement</span></label>
+<label><input type="checkbox"><span>API with errors, idempotency and concurrency control</span></label>
+<label><input type="checkbox"><span>Containers drawn; one request traced end to end</span></label>
+<label><input type="checkbox"><span>Failure of each arrow considered (crash, timeout, duplicate)</span></label>
+<label><input type="checkbox"><span>Security: authN, authZ, ownership, audit, privacy</span></label>
+<label><input type="checkbox"><span>Trade-offs and what I would change at 10× scale</span></label></div>
+
+<div class="quiz"><div class="q" data-a="1"><b>Best way to guarantee a seat is never sold twice?</b><button class="opt">Read the seat, check it, then update</button><button class="opt">One atomic conditional UPDATE (and a unique constraint as backup)</button><button class="opt">Tell the front end to disable the button</button><div class="why">Check-then-write races; the condition must be part of the write.</div></div></div>
+</div><div class="pager"><a href="11-patterns.html">← Architect&#x27;s pattern catalog</a><a href="13-interview.html">Interview kit →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

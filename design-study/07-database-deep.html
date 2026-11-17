@@ -1,0 +1,118 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Database deep dive · LMS Design Study</title><meta name="description" content="Ledger, atomic guard, indexes, transactions, migrations, SQL vs NoSQL, queries">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html" class="cur">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Database deep dive</h1>
+<p class="lead">The topics that separate a mid from a senior: money-like counters, races, indexes, transactions and safe change.</p>
+
+<h2>1. The balance problem: ledger + guarded balance row</h2>
+<table><tr><th>Option</th><th>Strength</th><th>Weakness</th></tr>
+<tr><td>A Counter only</td><td>Fast, simple</td><td>No history; two writers overwrite each other</td></tr>
+<tr><td>B Ledger only (balance = SUM)</td><td>Full history</td><td>Check-then-write races; SUM gets slower</td></tr>
+<tr><td><b>C Ledger + balance row (chosen)</b></td><td>History + speed + DB refuses negative</td><td>Two writes in step (one transaction + a reconciliation test)</td></tr></table>
+<p><b>The guard</b> is one atomic statement: the condition and the change happen together, so nothing slips in between.</p>
+<pre data-lang="sql"><code>UPDATE balances.LeaveBalance
+SET    Available = Available - @days
+WHERE  EmployeeId = @emp AND LeaveTypeId = @type AND LeaveYear = @year
+  AND  Available &gt;= @days;      -- 0 rows changed = not enough balance</code></pre>
+<div class="sim"><h4>Balance demo (start Available = 8.0)</h4>
+<div class="row"><label><input type="checkbox" id="bl-guard" checked> Use the atomic guard</label><button class="b" id="bl-sub">Submit 3 days</button><button class="b g" id="bl-rej">Reject last (restore)</button><button class="b" id="bl-race">Two simultaneous requests of 5 days</button><button class="b g" id="bl-reset">Reset</button></div>
+<table><thead><tr><th>#</th><th>EntryType</th><th>Days</th><th>Request</th></tr></thead><tbody id="bl-ledger"></tbody></table>
+<div>Available (balance row): <span class="big" id="bl-av">8.0</span> &nbsp; Ledger sum: <span class="big" id="bl-sum">8.0</span> &nbsp; <span id="bl-ok"></span></div><div class="out" id="bl-say"></div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);let av,led,rq,last;function rs(){av=8;led=[{t:'Grant',d:8,r:'-'}];rq=100;last=null;g('bl-say').textContent='Try the race button with the guard OFF, then ON.';draw()}
+function draw(){g('bl-ledger').innerHTML=led.map((l,i)=>'<tr><td>'+(i+1)+'</td><td>'+l.t+'</td><td>'+(l.d>0?'+':'')+l.d.toFixed(1)+'</td><td>'+l.r+'</td></tr>').join('');const s=led.reduce((a,l)=>a+l.d,0);g('bl-av').textContent=av.toFixed(1);g('bl-sum').textContent=s.toFixed(1);g('bl-ok').innerHTML=(Math.abs(s-av)<1e-9?'<span class="good">✓ reconciled</span>':'<span class="bad">✗ MISMATCH</span>')+(av<0?' <span class="bad">NEGATIVE BALANCE</span>':'')}
+g('bl-sub').onclick=()=>{if(av<3){g('bl-say').innerHTML='<span class="bad">422 insufficient_balance</span> (guard changed 0 rows, nothing saved)';return}av-=3;rq++;last=rq;led.push({t:'Deduction',d:-3,r:rq});g('bl-say').textContent='Saved request '+rq+': balance down, ledger row added (same transaction).';draw()};
+g('bl-rej').onclick=()=>{if(last===null){g('bl-say').textContent='No request to reject.';return}av+=3;led.push({t:'Restore',d:3,r:last});last=null;g('bl-say').textContent='Rejected: days restored, a Restore row is added (nothing edited).';draw()};
+g('bl-race').onclick=()=>{if(g('bl-guard').checked){if(av>=5){av-=5;led.push({t:'Deduction',d:-5,r:++rq});g('bl-say').innerHTML='Request 1 passes. Request 2: guard changes <b>0 rows</b> → <span class="good">422 insufficient_balance</span>.'}else g('bl-say').innerHTML='<span class="bad">Not enough for either.</span>'}else{av-=5;led.push({t:'Deduction',d:-5,r:++rq});av-=5;led.push({t:'Deduction',d:-5,r:++rq});g('bl-say').innerHTML='<span class="bad">Both read Available = 8 (check passed), both wrote. Naive check-then-update breaks.</span> The CHECK constraint would reject this in the real database: the second insert fails with error 547.'}draw()};
+g('bl-reset').onclick=rs;rs()})();
+</script>
+<p><b>Why days are held at submit:</b> if days were only taken at approval, two pending requests could together promise more days than exist (ADR 12). The cost: reject and cancel must restore.</p>
+<p><b>Reconciliation query</b> (must return no rows, in a test and a nightly check):</p>
+<pre data-lang="sql"><code>SELECT b.Id FROM balances.LeaveBalance b
+WHERE b.Available &lt;&gt; (SELECT COALESCE(SUM(e.Days),0) FROM balances.LeaveBalanceEntry e
+                      WHERE e.EmployeeId=b.EmployeeId AND e.LeaveTypeId=b.LeaveTypeId AND e.LeaveYear=b.LeaveYear);</code></pre>
+
+<h2>2. Transactions and ACID</h2>
+<table><tr><th>Letter</th><th>Meaning</th><th>LMS example</th></tr>
+<tr><td>Atomic</td><td>All or nothing</td><td>Request + days + balance + ledger + audit + outbox together</td></tr>
+<tr><td>Consistent</td><td>Constraints always hold</td><td>Available never negative</td></tr>
+<tr><td>Isolated</td><td>Concurrent work does not corrupt each other</td><td>Two submits on one balance</td></tr>
+<tr><td>Durable</td><td>Committed data survives a crash</td><td>The outbox row survives a restart</td></tr></table>
+<h3>Isolation levels in one table</h3>
+<table><tr><th>Level</th><th>Prevents</th><th>Note</th></tr>
+<tr><td>Read committed (default)</td><td>Dirty reads</td><td>With <code>READ_COMMITTED_SNAPSHOT</code>, readers do not block writers (the LMS turns it on)</td></tr>
+<tr><td>Repeatable read</td><td>+ non-repeatable reads</td><td>Holds read locks longer</td></tr>
+<tr><td>Serializable</td><td>+ phantoms</td><td>Safest, slowest; the LMS prefers a unique index to a serializable check</td></tr></table>
+<h3>Deadlocks</h3>
+<p>Two transactions wait for each other's locks. Avoid by writing tables in the <b>same order</b> in every use case (LMS: request, days, balance, ledger, audit, outbox). If SQL picks you as the victim (error 1205), <b>retry the whole transaction</b> (up to 3 times).</p>
+<table><tr><th>SQL error</th><th>Meaning</th><th>API does</th></tr>
+<tr><td>2601 / 2627</td><td>Unique index hit</td><td>409 overlap, or return saved answer</td></tr>
+<tr><td><code>DbUpdateConcurrencyException</code></td><td>RowVersion changed</td><td>409 stale_version</td></tr>
+<tr><td>0 rows from guard</td><td>Not enough balance</td><td>422</td></tr>
+<tr><td>547</td><td>CHECK/FK failed</td><td>Bug: log, 500</td></tr>
+<tr><td>1205</td><td>Deadlock victim</td><td>Retry</td></tr></table>
+
+<h2>3. Indexes: how to think</h2>
+<p>An index is a sorted copy of some columns with pointers to rows, like a book index. It makes reads fast and every write a little slower. <b>Rule: add an index only for a query you can name.</b></p>
+<div class="sim"><h4>Scan vs seek</h4><div class="row">Rows in table <input type="number" id="ix-n" value="1000000" min="10" step="1000"></div><div class="out" id="ix-out"></div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);function u(){const n=+g('ix-n').value;const lv=Math.max(1,Math.ceil(Math.log(n)/Math.log(200)));g('ix-out').innerHTML='Without an index: scan up to <b>'+n.toLocaleString()+'</b> rows.<br>With a B-tree index (about 200 keys per page): about <b>'+lv+'</b> page reads to find one row.<br><i>The gap grows with the table; tiny tables (LeaveType has 7 rows) need no index.</i>'}g('ix-n').oninput=u;u()})();
+</script>
+<table><tr><th>Screen / job</th><th>Index</th><th>Idea</th></tr>
+<tr><td>My requests (newest first)</td><td><code>LeaveRequest(EmployeeId, StartDate DESC) INCLUDE(...)</code></td><td><b>Covering</b> index: answered without touching the table</td></tr>
+<tr><td>Manager inbox</td><td>Filtered <code>LeaveRequest(StartDate) WHERE Status='Pending'</code></td><td><b>Filtered</b> index stays tiny: most requests are decided</td></tr>
+<tr><td>Team overlap</td><td><code>LeaveRequestDay(LeaveDate) INCLUDE(EmployeeId)</code></td><td>Who is away on a date</td></tr>
+<tr><td>Submit overlap check</td><td>Unique <code>(EmployeeId, LeaveDate, Slot)</code></td><td>One index = rule + fast lookup</td></tr>
+<tr><td>Outbox worker</td><td>Filtered <code>OutboxMessage(Id) WHERE SentAtUtc IS NULL</code></td><td>Small however many were sent</td></tr>
+<tr><td>Audit log</td><td><code>(ActorEmployeeId, Id DESC)</code>, keyset paging on <code>Id</code></td><td>Cursor paging stays fast on deep pages</td></tr></table>
+<div class="callout warn"><b class="t">Three traps</b>1) SQL Server does not index foreign keys by itself (EF adds them by convention; check the migration). 2) A filtered index may be skipped if the filter value is a parameter; use a constant and check the plan. 3) Never index by guessing: run the query with <code>SET STATISTICS IO ON</code>, look for a <b>seek</b>, compare reads.</div>
+
+<h2>4. Paging: offset vs keyset</h2>
+<pre data-lang="sql"><code>-- Offset: simple, slows on deep pages (reads and throws away 10,000 rows)
+SELECT * FROM audit.AuditEvent ORDER BY Id DESC OFFSET 10000 ROWS FETCH NEXT 20 ROWS ONLY;
+-- Keyset: remember the last Id; always an index seek
+SELECT TOP 20 * FROM audit.AuditEvent WHERE Id &lt; @lastId ORDER BY Id DESC;</code></pre>
+
+<h2>5. Migrations and safe change</h2>
+<pre data-lang="ascii"><code>Expand ──► deploy code that writes both ──► copy old data ──► Contract (drop old column in a later migration)
+safe: old and new code both work during the deploy; each step can be rolled back</code></pre>
+<ul><li>Never edit an applied migration; add a new one. Read the SQL first: <code>dotnet ef migrations script</code>.</li><li>Reference data ships in migrations (<code>HasData</code>); demo people only in Development (<code>DevSeeder</code>).</li><li>Deploy migrations as a separate step with a powerful login; the running API user has only the rights it needs.</li></ul>
+
+<h2>6. SQL or NoSQL?</h2>
+<table><tr><th>Need</th><th>SQL (LMS)</th><th>Document / key-value / wide-column</th></tr>
+<tr><td>Strong consistency, multi-row transactions</td><td><b>Yes</b></td><td>Often limited</td></tr>
+<tr><td>Rules like "never below zero", "no overlap"</td><td><b>Constraints in the DB</b></td><td>Application must enforce</td></tr>
+<tr><td>Ad-hoc reports and joins</td><td>Easy</td><td>Hard</td></tr>
+<tr><td>Huge write volume, flexible schema, global scale</td><td>Harder</td><td>Good fit</td></tr></table>
+<p>LMS: relational, because correctness rules matter and volume is tiny. Redis is for caching only.</p>
+
+<h2>7. Scaling the database (concepts)</h2>
+<table><tr><th>Technique</th><th>What</th><th>When</th></tr>
+<tr><td>Indexes and query tuning</td><td>Fix the slow query</td><td>Always first</td></tr>
+<tr><td>Cache</td><td>Skip the database for hot reads</td><td>Read-heavy, rarely changing data</td></tr>
+<tr><td>Read replica</td><td>Copy for reports</td><td>Heavy reporting (HR reports)</td></tr>
+<tr><td>Partitioning</td><td>Split a big table by date</td><td>Audit/outbox grow without limit</td></tr>
+<tr><td>Sharding</td><td>Split data across servers by key (tenant, region)</td><td>Beyond one server; multi-company tenancy (Won't for MVP)</td></tr>
+<tr><td>Archive</td><td>Move old rows out</td><td>Retention: 7 years after employment</td></tr></table>
+
+<h2>8. Practice SQL (LMS)</h2>
+<pre data-lang="sql"><code>-- Who is away on 2026-11-10 in my team (manager id 3)?
+SELECT e.FullName FROM leave.LeaveRequestDay d
+JOIN people.Employee e ON e.Id = d.EmployeeId
+WHERE d.LeaveDate = '2026-11-10' AND e.ManagerId = 3
+GROUP BY e.FullName;
+
+-- Approved days by leave type in 2026 (HR report)
+SELECT t.Code, SUM(r.DaysCount) AS Days
+FROM leave.LeaveRequest r JOIN balances.LeaveType t ON t.Id = r.LeaveTypeId
+WHERE r.Status = 'Approved' AND r.LeaveYear = 2026 GROUP BY t.Code;
+
+-- Employees with no manager (HR approves for them)
+SELECT Id, FullName FROM people.Employee WHERE ManagerId IS NULL AND IsActive = 1;</code></pre>
+
+<div class="quiz"><div class="q" data-a="2"><b>Two submits race on Available = 8, each wants 5. What stops the second?</b><button class="opt">Nothing</button><button class="opt">A try/catch</button><button class="opt">The guarded UPDATE changes 0 rows (and the CHECK constraint is the backup)</button><div class="why">Condition and change happen in one atomic statement.</div></div>
+<div class="q" data-a="1"><b>Why a filtered index on Pending requests?</b><button class="opt">Pending is unique</button><button class="opt">Most requests are decided, so the index stays tiny and fast</button><button class="opt">It enforces a rule</button><div class="why">Small indexes mean cheaper writes and reads.</div></div></div>
+</div><div class="pager"><a href="06-database.html">← Database design</a><a href="08-api.html">API design →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

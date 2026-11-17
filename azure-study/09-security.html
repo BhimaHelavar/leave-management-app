@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Security and networking · LMS Azure Study</title><meta name="description" content="CORS, TLS, headers, firewall, private endpoints, WAF concepts">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html" class="cur">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Security and networking</h1>
+<p class="lead">Defence in depth: several small walls, so one mistake is not fatal.</p>
+
+<h2>What the LMS already does (from the repo)</h2>
+<table><tr><th>Layer</th><th>What exists</th><th>File</th></tr>
+<tr><td>Identity</td><td>JWT checked on every request; deny-by-default policy; role policies; 403 audited</td><td><code>Auth/AuthSetup.cs</code></td></tr>
+<tr><td>Secrets</td><td>None in git; golden rule; repo-guard scan in CI</td><td><code>checks.yml</code></td></tr>
+<tr><td>Transport</td><td>HTTPS enforced by Azure (<code>httpsOnly</code>)</td><td>App Service setting</td></tr>
+<tr><td>Browser</td><td>Security headers middleware on the API; CSP for the web</td><td><code>Program.cs</code>, <code>staticwebapp.config.json</code></td></tr>
+<tr><td>Cross-origin</td><td>CORS allows exactly one origin</td><td><code>Cors__AllowedOrigin</code></td></tr>
+<tr><td>Abuse</td><td>Rate limit on dev endpoints</td><td><code>AuthSetup.cs</code></td></tr></table>
+
+<h2>CORS in plain words</h2>
+<p>The browser refuses to let a page from origin A read a response from origin B unless B says "A is allowed". <b>Origin</b> = scheme + host + port. For a non-simple request the browser first sends an <code>OPTIONS</code> <b>preflight</b>; the API must answer with <code>Access-Control-Allow-Origin: https://&lt;swa-host&gt;</code> and the allowed headers (<code>Authorization</code>).</p>
+<pre data-lang="powershell"><code># test the preflight yourself
+curl -i -X OPTIONS https://$API.azurewebsites.net/api/dev/token `
+  -H "Origin: https://$WEBHOST" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: content-type"</code></pre>
+<div class="callout"><b class="t">CORS is not security for the API</b>It only protects browsers. Anyone with curl can call the API. The real protection is authentication and authorization.</div>
+
+<h2>TLS and certificates</h2>
+<ul><li>Azure gives every <code>*.azurewebsites.net</code> and <code>*.azurestaticapps.net</code> host a valid certificate.</li><li>Custom domains on Static Web Apps get free managed certificates. On App Service the Free tier cannot bind a custom-domain certificate; B1 and above can.</li><li>Set minimum TLS 1.2 and disable FTP deploys (already in the commands).</li></ul>
+
+<h2>Network ideas, from simple to strong</h2>
+<table><tr><th>Level</th><th>What</th><th>Cost/effort</th></tr>
+<tr><td>1 Firewall rules</td><td>SQL: allow your IP and Azure services. App Service: access restrictions (the T-02 spec wants the API limited to the owner's IP). Test that F1 supports it.</td><td>Free</td></tr>
+<tr><td>2 Service endpoints</td><td>Allow only a virtual network's subnet to reach SQL</td><td>Needs a VNet</td></tr>
+<tr><td>3 Private endpoint</td><td>SQL gets a private IP inside your VNet; public access off</td><td>Paid, needs VNet integration (not on F1)</td></tr>
+<tr><td>4 Front Door / Application Gateway + WAF</td><td>Global entry point with a web application firewall (blocks SQL injection, bots)</td><td>Paid, production</td></tr></table>
+<div class="callout warn"><b class="t">Static Web Apps trade-off</b>IP restrictions on Static Web Apps need the Standard plan, so the static shell is public on Free. That is acceptable: it holds no data. The data sits behind the API, which needs a token.</div>
+
+<h2>Security checklist for the demo</h2>
+<div class="checklist" data-key="sec"><span class="prog"></span>
+<label><input type="checkbox"><span>No secret in git (run the repo-guard check)</span></label>
+<label><input type="checkbox"><span>httpsOnly on, TLS 1.2, FTP disabled</span></label>
+<label><input type="checkbox"><span>CORS has exactly one origin</span></label>
+<label><input type="checkbox"><span>SQL admin password is long and stored in a vault, not in notes</span></label>
+<label><input type="checkbox"><span>Auth__Dev__SigningKey is a fresh random value, 32+ chars</span></label>
+<label><input type="checkbox"><span>Demo users contain no real personal data</span></label>
+<label><input type="checkbox"><span>Budget alert email tested</span></label>
+<label><input type="checkbox"><span>Know that Dev auth has no passwords: the demo URL is public, so limit or share it knowingly</span></label></div>
+<div class="callout gap"><b class="t">Important risk</b><code>Auth:Mode=Dev</code> lets anyone who can reach the API pick any demo person, including Admin. On a public URL that means the demo data is open to anyone. Restrict the API by IP (spec T-02), or deploy only for short sessions, until Entra ID arrives in 4g.</div>
+</div><div class="pager"><a href="08-bicep.html">← Infrastructure as code</a><a href="10-monitoring.html">Monitoring →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

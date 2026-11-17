@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Other Azure services · LMS Azure Study</title><meta name="description" content="Cache, queues, storage, containers, AKS, Functions: when to use which">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html" class="cur">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Other Azure services (and when you would add them)</h1>
+<p class="lead">The LMS demo needs only three services. These are the others interviewers ask about, each tied to a realistic LMS need. None of them is built into the LMS; this is study material.</p>
+
+<h2>Quick map</h2>
+<table><tr><th>Need in the LMS</th><th>Azure service</th><th>Idea</th></tr>
+<tr><td>Public holiday and balance lookups are read often</td><td><b>Azure Cache for Redis</b></td><td>In-memory cache in front of the database. Cache-aside: read cache, miss → read DB → store in cache with an expiry</td></tr>
+<tr><td>Email the manager when a request is submitted, without slowing the API</td><td><b>Service Bus</b> (queue) + a worker</td><td>The API puts a message on a queue; a background worker sends the email later and retries on failure</td></tr>
+<tr><td>Year-end balance rollover job</td><td><b>Functions</b> (timer trigger) or a scheduled job</td><td>Code that runs on a schedule, pay per run</td></tr>
+<tr><td>Medical certificate upload</td><td><b>Blob Storage</b></td><td>Cheap object storage. Return a short-lived SAS link; never expose the account key</td></tr>
+<tr><td>Real email/SMS</td><td><b>Azure Communication Services</b> (or SendGrid)</td><td>Managed sending, with SPF/DKIM setup on your domain</td></tr>
+<tr><td>Several services, scale to zero</td><td><b>Container Apps</b></td><td>Containers without managing Kubernetes. Use the repo's Dockerfiles + Azure Container Registry</td></tr>
+<tr><td>A platform with many teams</td><td><b>AKS</b></td><td>Managed Kubernetes. Powerful, but you operate a cluster: too heavy for one app</td></tr>
+<tr><td>Safe entry point, WAF, global routing</td><td><b>Front Door</b></td><td>CDN + WAF + routing in front of the apps</td></tr>
+<tr><td>Private connectivity</td><td><b>Virtual Network + Private Endpoint</b></td><td>Services talk over private IPs, public access off</td></tr></table>
+
+<h2>Queue vs topic vs event (a classic question)</h2>
+<table><tr><th>Type</th><th>Delivery</th><th>Use</th></tr>
+<tr><td>Queue (Service Bus)</td><td>One consumer gets each message; retries; dead-letter queue</td><td>Do this task once: send the approval email</td></tr>
+<tr><td>Topic + subscriptions</td><td>Each subscriber gets a copy</td><td>"Leave approved" read by payroll and the calendar</td></tr>
+<tr><td>Event Grid</td><td>Lightweight "something happened" notifications</td><td>React to a blob upload</td></tr></table>
+<p>Service Bus vs <b>RabbitMQ</b>: Service Bus is managed by Azure (no servers); RabbitMQ is open source and portable, you run it yourself (or in a container). Pick Service Bus on Azure unless you must stay cloud-neutral.</p>
+
+<h2>Cache-aside example (concept in C#)</h2>
+<pre data-lang="csharp"><code>// Pseudocode. Not in the LMS; adding Redis needs a package and your approval.
+public async Task&lt;IReadOnlyList&lt;Holiday&gt;&gt; GetHolidaysAsync(int year)
+{
+    var key = $"holidays:{year}";
+    var cached = await cache.GetStringAsync(key);
+    if (cached is not null) return JsonSerializer.Deserialize&lt;List&lt;Holiday&gt;&gt;(cached)!;
+
+    var fresh = await db.Holidays.Where(h =&gt; h.Year == year).ToListAsync();
+    await cache.SetStringAsync(key, JsonSerializer.Serialize(fresh),
+        new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12) });
+    return fresh;
+}</code></pre>
+<p>Hard parts to be ready to discuss: <b>invalidation</b> (when data changes), <b>stampede</b> (many misses at once), and "never cache per-user secrets under a shared key".</p>
+
+<h2>Container Apps path with the existing Dockerfiles</h2>
+<pre data-lang="powershell"><code>az acr create -g $RG -n lmsacr$SUFFIX --sku Basic
+az acr build -r lmsacr$SUFFIX -t lms-api:1 -f src/LeaveManagement.Api/Dockerfile .
+az containerapp env create -g $RG -n cae-lms -l $LOC
+az containerapp create -g $RG -n lms-api --environment cae-lms --image lmsacr$SUFFIX.azurecr.io/lms-api:1 --target-port 8080 --ingress external</code></pre>
+<p>This is a sketch for learning (I did not run it; the registry needs pull permission set up). The API image listens on 8080 as non-root, matching <code>--target-port 8080</code>.</p>
+
+<h2>Availability words</h2>
+<table><tr><th>Word</th><th>Meaning</th></tr>
+<tr><td>SLA</td><td>Uptime promise from Microsoft (free tiers have none)</td></tr>
+<tr><td>Availability zone</td><td>Separate buildings in a region; spreading across them survives one building failing</td></tr>
+<tr><td>Region pair / geo-replication</td><td>Copy to another region for disaster recovery</td></tr>
+<tr><td>Autoscale</td><td>Add instances when CPU/requests rise (S1 and up)</td></tr></table>
+</div><div class="pager"><a href="10-monitoring.html">← Monitoring</a><a href="12-cost.html">Cost and cleanup →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

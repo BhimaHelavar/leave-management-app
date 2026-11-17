@@ -1,0 +1,68 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NFRs and scaling · LMS Design Study</title><meta name="description" content="Availability, latency, capacity, scaling levers, CAP, from 300 to 30,000 users">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html" class="cur">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Non-functional requirements and scaling</h1>
+<p class="lead">Functional requirements say <i>what</i>. NFRs decide <i>how big, how fast, how safe</i>, and they drive most architecture choices.</p>
+
+<h2>From NFR to design (the LMS table)</h2>
+<table><tr><th>NFR</th><th>Target</th><th>Design response</th></tr>
+<tr><td>Availability</td><td>99.5 % monthly</td><td>Health checks, restart policy, simple stateless API</td></tr>
+<tr><td>RPO 24 h / RTO 4 h</td><td>Nightly backup, restore drill</td><td>Managed database backups; test restoring into a clean environment</td></tr>
+<tr><td>Latency</td><td>p95 &lt; 300 ms reads, &lt; 600 ms writes</td><td>Indexes, no N+1 queries, cache reference data, email off the request path</td></tr>
+<tr><td>Capacity</td><td>300 users, 50 concurrent</td><td>One API instance and one DB are enough</td></tr>
+<tr><td>Auditability 100 %</td><td>Every state change</td><td>Audit row in the same transaction</td></tr>
+<tr><td>Notifications</td><td>95 % in 2 min, zero duplicates</td><td>Outbox + dedupe consumer</td></tr>
+<tr><td>Privacy</td><td>No personal data in logs</td><td>Ids only in audit, outbox, logs</td></tr></table>
+
+<h2>Availability maths</h2>
+<div class="sim"><h4>Downtime calculator</h4><div class="row">Availability % <input type="number" id="av" value="99.5" step="0.01" min="90" max="100"> Dependencies in a chain (all must work): <input type="number" id="ch" value="3" min="1" max="10"></div><div class="out" id="av-out"></div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);function u(){const a=+g('av').value/100,c=+g('ch').value;const down=(1-a)*30*24;const comp=Math.pow(a,c);g('av-out').innerHTML='One component at '+(a*100).toFixed(2)+' % ≈ <b>'+down.toFixed(1)+' hours</b> down per 30-day month.<br>'+c+' such components in a chain: combined availability <b>'+(comp*100).toFixed(2)+' %</b> ≈ <b>'+((1-comp)*30*24).toFixed(1)+' hours</b> down.<br><i>Every extra required part lowers the total. That is why fewer moving parts is a feature.</i>'}['av','ch'].forEach(i=>g(i).oninput=u);u()})();
+</script>
+<table><tr><th>Nines</th><th>Downtime per year</th><th>Typical means</th></tr>
+<tr><td>99 %</td><td>3.65 days</td><td>Single instance</td></tr><tr><td>99.9 %</td><td>8.8 hours</td><td>Managed platform, health checks</td></tr><tr><td>99.99 %</td><td>53 minutes</td><td>Multi-zone, automated failover</td></tr><tr><td>99.999 %</td><td>5 minutes</td><td>Multi-region, huge cost</td></tr></table>
+<p><b>RPO</b> (Recovery Point Objective): how much data you can lose. <b>RTO</b> (Recovery Time Objective): how long you can be down. Define both, then <b>test the restore</b>.</p>
+
+<h2>Scaling levers, cheapest first</h2>
+<pre data-lang="ascii"><code>1 Fix the query / add the right index         ← almost always the real answer
+2 Cache hot, rarely changing reads            ← Redis / HybridCache
+3 Move slow work out of the request           ← outbox/queue + worker
+4 Scale the API OUT (more instances)          ← needs a STATELESS API (token in header, no server session)
+5 Read replica for reports                    ← HR reports off the primary
+6 Partition / archive big tables              ← audit, outbox
+7 Split services or shard data                ← last resort; real cost</code></pre>
+<div class="sim"><h4>How would the LMS change with company size?</h4><div class="row">Employees <input type="number" id="sz" value="300" min="10" step="100"></div><div class="out" id="sz-out"></div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);function u(){const n=+g('sz').value;let t;if(n<=2000)t='<b>Stay as is.</b> Modular monolith, one SQL Server, one or two API instances. Fix indexes, cache holidays and leave types.';else if(n<=20000)t='<b>Scale out.</b> Several stateless API instances behind a load balancer, Redis cache, RabbitMQ for notifications, read replica for HR reports, partition audit/outbox.';else if(n<=200000)t='<b>Operate for scale.</b> Multi-zone deployment, autoscaling, replicas, careful capacity tests, maybe extract the notification and reporting modules into their own services.';else t='<b>Platform scale.</b> Multi-tenant sharding (by company), multi-region, event streaming, dedicated platform team. Fashionable tools only help once measurements prove the need.';g('sz-out').innerHTML=t}g('sz').oninput=u;u()})();
+</script>
+<div class="callout"><b class="t">Statelessness is the key to scaling out</b>The LMS API keeps no session in memory: the JWT carries identity, the database holds state. Any instance can serve any request. (The dev token is kept in the browser's memory, not the server's.)</div>
+
+<h2>Latency budget (where the 300 ms goes)</h2>
+<pre data-lang="ascii"><code>Browser ─ network 40 ms ─► API auth+routing 5 ms ─► rules (pure) 1 ms ─► SQL 2 queries 20 ms ─► serialize 5 ms ─ network 40 ms
+Total ≈ 110 ms. A 100 ms email call inside the request would be fine alone, but its failures and spikes are not → outbox.</code></pre>
+<h3>Numbers every engineer should know</h3>
+<table><tr><th>Operation</th><th>Rough time</th></tr>
+<tr><td>Memory read</td><td>100 ns</td></tr><tr><td>SSD read</td><td>100 µs</td></tr><tr><td>Same-datacentre round trip</td><td>0.5 ms</td></tr><tr><td>Cross-region round trip</td><td>50 to 150 ms</td></tr><tr><td>Index seek in a database</td><td>about 1 ms</td></tr></table>
+
+<h2>CAP and consistency in simple words</h2>
+<p>When the network splits a distributed system you must choose: stay <b>consistent</b> (refuse some requests) or stay <b>available</b> (answers may be stale). The LMS is a single database: it keeps <b>strong consistency</b> for balances. Where staleness is fine (cached holidays) it accepts <b>eventual consistency</b>.</p>
+<table><tr><th>Data</th><th>Consistency</th></tr><tr><td>Balance, request status</td><td>Strong (wrong value = wrong decision)</td></tr><tr><td>Holidays cache</td><td>Eventual (seconds to hours old is fine)</td></tr><tr><td>Email delivery</td><td>Eventual, at least once</td></tr></table>
+
+<h2>Resilience basics</h2>
+<table><tr><th>Technique</th><th>Meaning</th><th>LMS use</th></tr>
+<tr><td>Timeout</td><td>Never wait forever</td><td>SQL connection timeout 60 s on a paused free database</td></tr>
+<tr><td>Retry with backoff</td><td>Try again, waiting longer each time</td><td>Outbox <code>Attempts</code>, <code>NextAttemptAtUtc</code></td></tr>
+<tr><td>Idempotency</td><td>Retries are safe</td><td>Keys, ProcessedMessage</td></tr>
+<tr><td>Dead-letter queue</td><td>Park poison messages</td><td>RabbitMQ increment</td></tr>
+<tr><td>Health checks</td><td>Tell the platform when you are sick</td><td><code>/health/live</code>, <code>/health/ready</code></td></tr>
+<tr><td>Graceful degradation</td><td>Keep core working</td><td>Email down: requests still save</td></tr></table>
+
+<h2>Observability: the three pillars</h2>
+<p><b>Logs</b> (what happened), <b>metrics</b> (how much, how fast), <b>traces</b> (where the time went, linked by <code>traceId</code>). The LMS puts <code>traceId</code> in every error body so a user report leads straight to a log line. Never log personal data.</p>
+
+<div class="quiz"><div class="q" data-a="1"><b>Three required components each 99.5 % available. Combined?</b><button class="opt">99.5 %</button><button class="opt">About 98.5 %</button><button class="opt">100 %</button><div class="why">Multiply: 0.995³ ≈ 0.985. More required parts, less availability.</div></div>
+<div class="q" data-a="0"><b>What must be true to add a second API instance?</b><button class="opt">The API is stateless</button><button class="opt">Use GraphQL</button><button class="opt">Switch to NoSQL</button><div class="why">Any instance must be able to serve any request.</div></div></div>
+</div><div class="pager"><a href="08-api.html">← API design</a><a href="10-security.html">Security and privacy →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

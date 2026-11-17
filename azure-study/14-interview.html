@@ -1,0 +1,46 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Interview and quiz · LMS Azure Study</title><meta name="description" content="Azure questions with LMS answers, a quiz and a glossary">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>LMS on Azure</h2><small>Study notes</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-basics.html" href="01-basics.html">Azure basics</a><a data-page="02-architecture.html" href="02-architecture.html">Architecture</a><a data-page="03-sql.html" href="03-sql.html">Azure SQL</a><a data-page="04-api.html" href="04-api.html">API on App Service</a><a data-page="05-web.html" href="05-web.html">Angular on Static Web Apps</a><a data-page="06-secrets.html" href="06-secrets.html">Config, secrets, identity</a><a data-page="07-cicd.html" href="07-cicd.html">CI/CD with GitHub Actions</a><a data-page="08-bicep.html" href="08-bicep.html">Infrastructure as code</a><a data-page="09-security.html" href="09-security.html">Security and networking</a><a data-page="10-monitoring.html" href="10-monitoring.html">Monitoring</a><a data-page="11-more-services.html" href="11-more-services.html">Other Azure services</a><a data-page="12-cost.html" href="12-cost.html">Cost and cleanup</a><a data-page="13-runbook.html" href="13-runbook.html">Deploy-day runbook</a><a data-page="14-interview.html" href="14-interview.html" class="cur">Interview and quiz</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Interview practice, quiz and glossary</h1>
+<p class="lead">Answer in your own words first, then open the model answer. Use the LMS as your example.</p>
+
+<h2>Model questions</h2>
+<details><summary>1. Walk me through how you deployed your app to Azure.</summary><p>Angular on Static Web Apps (Free), .NET 10 API on App Service Linux, data in Azure SQL's free serverless database. A manual GitHub Actions workflow builds both parts, writes <code>config.json</code> with the API URL, and deploys. Secrets are in GitHub and App Service settings, not in git. Migrations are an idempotent SQL script I read and run.</p></details>
+<details><summary>2. Why PaaS and not VMs or Kubernetes?</summary><p>One small API; PaaS removes OS patching and cluster work. I would move to Container Apps or AKS only when several services or special scaling justify the operating cost. The repo already has Dockerfiles, so that path stays open.</p></details>
+<details><summary>3. How does the browser app know the API address on Azure?</summary><p>At startup it fetches <code>/config.json</code>. The deploy step writes the Azure URL into it. One build runs everywhere; only the small config file changes.</p></details>
+<details><summary>4. What is CORS and how did you configure it?</summary><p>A browser rule that blocks cross-origin reads unless the server allows the origin. The API allows exactly one origin from <code>Cors__AllowedOrigin</code>. It protects browsers, not the API; real protection is JWT validation and role policies.</p></details>
+<details><summary>5. Where do secrets live?</summary><p>Not in git (repo-guard scans for it). Demo: App Service settings and GitHub secrets. Better: Key Vault references with a managed identity. Best: no password, e.g. Entra login to SQL and OIDC from GitHub to Azure.</p></details>
+<details><summary>6. What is a managed identity?</summary><p>An identity Azure creates for a resource and rotates itself. The app gets tokens for other services without storing credentials. You grant it a role at a scope (RBAC), e.g. Key Vault Secrets User.</p></details>
+<details><summary>7. Why OIDC federation instead of a publish profile?</summary><p>Short-lived tokens, nothing to store or rotate, and the trust is tied to repo and environment. A leaked publish profile works until someone resets it.</p></details>
+<details><summary>8. What are the limits of your free-tier setup?</summary><p>No SLA. App Service F1 has a CPU quota and cold starts. The SQL free database pauses after 15 minutes and has a monthly vCore-second allowance. Dev auth means the public demo is open unless the API is restricted. These are acceptable for a portfolio, not for real users.</p></details>
+<details><summary>9. How would you add zero-downtime releases?</summary><p>Move to Standard, deploy to a staging slot, run the health check, swap, and swap back to roll back. Database changes are additive so both versions work during the swap.</p></details>
+<details><summary>10. How do you monitor it?</summary><p>Health check at <code>/health</code>, Application Insights for requests, failures and dependency timing, KQL queries, and alerts on 5xx and health to an action group. Budget alerts for cost.</p></details>
+<details><summary>11. Service Bus or RabbitMQ?</summary><p>Service Bus when I am on Azure and want it managed (queues, topics, dead-letter). RabbitMQ when I need portability or already run it. For the LMS approval emails, a queue plus a worker keeps the API fast.</p></details>
+<details><summary>12. What would you change to make this production-ready?</summary><p>Entra ID auth (4g), Key Vault and managed identity, private endpoint for SQL, B1/S1 with Always On and slots, Bicep for all resources, automated migrations in the pipeline with approval, backups tested, and alerts.</p></details>
+
+<h2>Quick quiz</h2>
+<p id="score">Answered 0/5</p>
+<div class="quiz">
+<div class="q" data-a="1"><b>Which service holds the built Angular files?</b><button class="opt">App Service</button><button class="opt">Static Web Apps</button><button class="opt">Key Vault</button><div class="why">Static Web Apps hosts static files with free HTTPS.</div></div>
+<div class="q" data-a="2"><b>In App Service, <code>Auth__Mode</code> equals which .NET key?</b><button class="opt">Auth/Mode</button><button class="opt">Auth.Mode</button><button class="opt">Auth:Mode</button><div class="why">Double underscore becomes a colon in the environment provider.</div></div>
+<div class="q" data-a="0"><b>Why does the deploy need a separate migration step?</b><button class="opt">Migrations run only when the environment is Development</button><button class="opt">Azure forbids EF Core</button><button class="opt">SQL cannot hold tables</button><div class="why">The API's startup initializer is inside an IsDevelopment check.</div></div>
+<div class="q" data-a="1"><b>What does a federated credential prove?</b><button class="opt">The password is strong</button><button class="opt">This GitHub run matches a trusted repo/branch/environment</button><button class="opt">The VM is patched</button><div class="why">Entra trusts the GitHub token's subject, so no stored secret is needed.</div></div>
+<div class="q" data-a="2"><b>Best fix for a CORS error in the browser?</b><button class="opt">Disable CORS in the browser</button><button class="opt">Allow every origin with *</button><button class="opt">Set the API's allowed origin to the exact web origin</button><div class="why">Exact origin, no trailing slash, right scheme.</div></div></div>
+
+<h2>Glossary</h2>
+<table><tr><th>Term</th><th>Plain meaning</th></tr>
+<tr><td>ARM</td><td>The Azure API that creates resources</td></tr><tr><td>Bicep</td><td>Readable language that compiles to ARM</td></tr>
+<tr><td>CDN</td><td>Copies of files near users</td></tr><tr><td>CORS</td><td>Browser cross-origin permission</td></tr>
+<tr><td>Entra ID</td><td>Microsoft's identity service (was Azure AD)</td></tr><tr><td>Idempotent</td><td>Safe to run again with the same result</td></tr>
+<tr><td>KQL</td><td>Query language for logs</td></tr><tr><td>Managed identity</td><td>Passwordless identity for an Azure resource</td></tr>
+<tr><td>OIDC</td><td>Sign-in standard; also how GitHub proves itself to Azure</td></tr><tr><td>PaaS</td><td>Platform as a service: you bring code</td></tr>
+<tr><td>RBAC</td><td>Role + scope based permissions</td></tr><tr><td>Resource group</td><td>Folder of related resources</td></tr>
+<tr><td>SAS</td><td>Time-limited link to a storage item</td></tr><tr><td>Slot</td><td>Second copy of an app for safe swaps</td></tr>
+<tr><td>SLA</td><td>Uptime promise</td></tr><tr><td>Subscription</td><td>Billing boundary</td></tr><tr><td>WAF</td><td>Firewall for web attacks</td></tr></table>
+
+<h2>Your teach-back</h2>
+<ol><li>Draw the LMS on Azure from memory and say what each arrow carries.</li><li>Explain why Demo does not create tables and give two fixes.</li><li>Explain how <code>config.json</code> lets one build run in two places.</li></ol>
+</div><div class="pager"><a href="13-runbook.html">← Deploy-day runbook</a><span></span></div></main></div>
+<script src="assets/study.js"></script></body></html>

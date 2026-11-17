@@ -1,0 +1,121 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Requirements · LMS Design Study</title><meta name="description" content="All LMS business requirements, rules, roles and quality targets">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html" class="cur">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Requirements: the 100 % of what the LMS must do</h1>
+<p class="lead">Every design decision traces back to a requirement. Learn to read, rank and test requirements, and you can design any system.</p>
+
+<h2>What a requirement is (and the two kinds)</h2>
+<ul><li><b>Business requirement</b>: a need of the business, in business words. <i>"HR cannot prove who approved what."</i></li>
+<li><b>Functional requirement (FR)</b>: something the system <b>does</b>. <i>"A manager can approve or reject with a comment."</i></li>
+<li><b>Non-functional requirement (NFR)</b>: how <b>well</b> it does it: speed, uptime, security, privacy. <i>"p95 under 300 ms."</i></li>
+<li><b>Constraint</b>: a limit you cannot change. <i>"Free tiers only; 8 to 10 hours a week."</i></li></ul>
+<div class="callout"><b class="t">Rule of thumb</b>If you cannot write a test for it, it is not a requirement yet. "Fast" fails; "p95 under 300 ms at 50 users" passes.</div>
+
+<h2>The business problem</h2>
+<p>Leave is tracked in <b>email and spreadsheets</b>, so balances are wrong, approvals stall and HR cannot prove who approved what. Objectives: approvals in under one working day, balance errors near zero, full audit trail. Company: Acme India Pvt Ltd, about 300 employees (Bengaluru, Pune, one non-India office); India-first rules; leave year 1 January to 31 December. MVP: one location (Bengaluru, Asia/Kolkata).</p>
+
+<h2>Who is affected (stakeholders)</h2>
+<table><tr><th>Stakeholder</th><th>Wants</th><th>Worry</th><th>Design consequence</th></tr>
+<tr><td>Employee</td><td>Fast requests, trustworthy balance</td><td>Is my balance right?</td><td>Preview before submit; ledger explains the balance</td></tr>
+<tr><td>Manager</td><td>Quick approvals, team coverage</td><td>Approving without seeing clashes</td><td>Inbox shows who else is away</td></tr>
+<tr><td>HR</td><td>Uniform policy, reports</td><td>Exceptions, year-end carry-forward</td><td>HR adjustments, reports, escalation path</td></tr>
+<tr><td>Admin</td><td>Simple config</td><td>Safe changes, who changed what</td><td>Audit log, configurable leave types</td></tr>
+<tr><td>Finance / Payroll</td><td>Accurate unpaid leave data</td><td>Cut-off mismatch</td><td>Reports (payroll integration out of scope)</td></tr>
+<tr><td>Leadership</td><td>Absence trends</td><td>Privacy of medical reasons</td><td>Aggregates only; reasons restricted</td></tr>
+<tr><td>Auditor / Legal</td><td>Evidence, compliance (veto)</td><td>Retention, no personal data in logs</td><td>Immutable audit, ids not names in logs</td></tr></table>
+
+<h2>The 17 business requirements (MoSCoW)</h2>
+<p><b>MoSCoW</b> ranks scope: <b>M</b>ust, <b>S</b>hould, <b>C</b>ould, <b>W</b>on't (this release). It forces the "what do we cut?" conversation.</p>
+<table><tr><th>ID</th><th>Requirement</th><th>Priority</th><th>Where the design answers it</th></tr>
+<tr><td>BR-01</td><td>Sign in; role-appropriate screens (Employee, Manager, HR, Admin)</td><td>Must</td><td>JWT, role policies, deny-by-default, <code>EmployeeRole</code></td></tr>
+<tr><td>BR-02</td><td>See balance per leave type</td><td>Must</td><td><code>LeaveBalance</code> + ledger, <code>GET /me/balances</code></td></tr>
+<tr><td>BR-03</td><td>Apply; working days skip weekends and location holidays; half-day</td><td>Must</td><td><code>WorkingDayCalculator</code>, <code>Holiday</code>, <code>LeaveRequestDay</code></td></tr>
+<tr><td>BR-04</td><td>Cancel pending or approved under rules</td><td>Must</td><td>State machine; <code>POST /cancel</code>; restore ledger entry</td></tr>
+<tr><td>BR-05</td><td>Manager approves or rejects with comment</td><td>Must</td><td>Action endpoints, <code>If-Match</code>, <code>DecisionComment</code> check</td></tr>
+<tr><td>BR-06</td><td>Email on submit, decision, cancel</td><td>Must</td><td>Outbox + worker (later RabbitMQ)</td></tr>
+<tr><td>BR-07</td><td>Immutable audit trail of every action</td><td>Must</td><td><code>AuditEvent</code>, insert-only permissions + trigger</td></tr>
+<tr><td>BR-08</td><td>Admin configures leave types and holiday calendar per location</td><td>Must</td><td><code>LeaveType</code> table (not enum), <code>Holiday</code> per <code>Location</code></td></tr>
+<tr><td>BR-09</td><td>HR reports with CSV export</td><td>Should</td><td>Report endpoint, index on (Status, StartDate)</td></tr>
+<tr><td>BR-10</td><td>Policy engine: accrual, pro-rata, notice, max consecutive</td><td>Should</td><td>Columns on <code>LeaveType</code> + pure <code>LeaveRules</code></td></tr>
+<tr><td>BR-11</td><td>Team calendar: who is away</td><td>Could</td><td>Index on <code>LeaveRequestDay(LeaveDate)</code></td></tr>
+<tr><td>BR-12</td><td>Delegation when approver away; escalation after timeout</td><td>Could</td><td>HR approves on behalf now; <code>Delegation</code> table later</td></tr>
+<tr><td>BR-13</td><td>Year-end carry-forward and accrual jobs</td><td>Should (after slice)</td><td>Ledger types Accrual, CarryForward, Expiry</td></tr>
+<tr><td>BR-14</td><td>Teams notifications; live inbox (SignalR)</td><td>Could</td><td>Sprint 11</td></tr>
+<tr><td>BR-15</td><td>Payroll integration, mobile app</td><td>Won't</td><td>Out of scope (say so in interviews)</td></tr>
+<tr><td>BR-16</td><td>Exception request with reason to HR; audited override (SCRUM-20)</td><td>Should</td><td><code>ExceptionRequest</code> table later</td></tr>
+<tr><td>BR-17</td><td>HR export-my-data for access requests (SCRUM-23)</td><td>Should</td><td>Privacy design (page 10)</td></tr></table>
+<p><b>Out of scope for the MVP:</b> payroll integration, mobile app, multi-company tenancy, biometric attendance, shift-based scheduling.</p>
+
+<h2>Roles and permissions</h2>
+<table><tr><th>Action</th><th>Employee</th><th>Manager</th><th>HR</th><th>Admin</th></tr>
+<tr><td>Apply, view, cancel own leave</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>View team leave / calendar</td><td>no</td><td>direct reports</td><td>all</td><td>all</td></tr>
+<tr><td>Approve or reject</td><td>no</td><td>direct reports, never own</td><td>escalations and manager-less, logged</td><td>no</td></tr>
+<tr><td>Adjust balances, leave types, holidays</td><td>no</td><td>no</td><td>yes</td><td>yes</td></tr>
+<tr><td>Manage users and roles</td><td>no</td><td>no</td><td>no</td><td>yes</td></tr>
+<tr><td>View audit log</td><td>no</td><td>no</td><td>yes</td><td>yes</td></tr></table>
+<p>Roles are <b>additive</b>: everyone is an Employee; a person may also be Manager, HR or Admin.</p>
+
+<h2>The 15 accepted policy rules</h2>
+<p>Rules are requirements too. Notice how each became either a <b>column</b>, a <b>constraint</b>, or <b>Domain code</b>.</p>
+<table><tr><th>#</th><th>Rule</th><th>Lives in</th></tr>
+<tr><td>1</td><td>Leave types admin-configurable; 7 seeded (Annual, Sick, Casual, Comp-off, Unpaid, Maternity, Paternity)</td><td>Table <code>LeaveType</code></td></tr>
+<tr><td>2</td><td>Annual accrues monthly: 18 days a year, 1.5 a month</td><td>Columns + job writes ledger</td></tr>
+<tr><td>3</td><td>Joiner pro-rata by completed month, nearest 0.5</td><td><code>JoinDate</code> + ledger entry</td></tr>
+<tr><td>4</td><td>Carry-forward: Annual only, up to 10 days, expires 31 March</td><td>Columns + <code>ExpiresOn</code></td></tr>
+<tr><td>5</td><td>Balance never below zero; Unpaid has none</td><td><b>Database CHECK</b></td></tr>
+<tr><td>6</td><td>Probation: no Annual in first 3 months</td><td>Column + Domain</td></tr>
+<tr><td>7</td><td>Notice: Annual needs 3 working days</td><td>Column + Domain (needs clock, holidays)</td></tr>
+<tr><td>8</td><td>Max consecutive: Annual 15; longer needs HR</td><td>Column + Domain</td></tr>
+<tr><td>9</td><td>Sick over 2 days needs a medical certificate</td><td>Column; table later</td></tr>
+<tr><td>10</td><td>Sandwich rule off in MVP</td><td>Domain (weekend inside range never counts)</td></tr>
+<tr><td>11</td><td>Half day: first/second half, single day, counts 0.5</td><td><b>Database CHECK</b> + Domain</td></tr>
+<tr><td>12</td><td>Cancel: employee before start; HR after start</td><td>State machine + roles</td></tr>
+<tr><td>13</td><td>No overlapping pending/approved requests</td><td><b>Unique index</b> on day table</td></tr>
+<tr><td>14</td><td>Approver absent: HR approves on behalf</td><td><code>DecidedByEmployeeId</code> + audit</td></tr>
+<tr><td>15</td><td>Maternity/paternity separate types; HR grants</td><td><code>LeaveType</code> rows + ledger <code>Grant</code></td></tr></table>
+<p>Other facts: a request never crosses a leave year (submit two); days are deducted at submit and restored on reject or cancel; rejection needs a comment; <code>DaysCount</code> is a snapshot, never recalculated.</p>
+
+<h2>Non-functional requirements (measurable)</h2>
+<table><tr><th>Area</th><th>Target</th><th>How measured</th></tr>
+<tr><td>Availability</td><td>99.5 % monthly (about 3.6 h downtime)</td><td>Uptime probe on /health</td></tr>
+<tr><td>RPO / RTO</td><td>24 h / 4 h</td><td>Nightly backup; timed restore drill</td></tr>
+<tr><td>API latency</td><td>p95 &lt; 300 ms reads, &lt; 600 ms apply/approve at 50 concurrent users</td><td>k6 load test</td></tr>
+<tr><td>Page load</td><td>Dashboard interactive &lt; 2.5 s on 4G</td><td>Lighthouse in CI</td></tr>
+<tr><td>Capacity</td><td>300 users, 50 concurrent, 5,000 requests a year</td><td>Load test</td></tr>
+<tr><td>Security</td><td>OWASP ASVS L1; role check on every endpoint; no secrets in repo</td><td>Authorization tests, scans</td></tr>
+<tr><td>Accessibility</td><td>WCAG 2.1 AA</td><td>axe in Playwright</td></tr>
+<tr><td>Auditability</td><td>100 % of state changes audited; immutable</td><td>Test per command</td></tr>
+<tr><td>Notifications</td><td>95 % within 2 min; zero duplicates</td><td>Outbox metrics</td></tr>
+<tr><td>Privacy</td><td>No personal data in logs; reasons and medical docs only for approver and HR</td><td>Log review, authz tests</td></tr>
+<tr><td>Retention</td><td>7 years after employment (placeholder); certificates 1 year</td><td>Retention job test</td></tr>
+<tr><td>Maintainability</td><td>90 %+ domain test coverage; one-command start</td><td>CI gate</td></tr></table>
+
+<h2>Demo: how big is this system? (capacity estimate)</h2>
+<div class="sim"><h4>Back-of-envelope calculator</h4>
+<div class="row">Employees <input type="number" id="emp" value="300" min="1"> Requests per employee per year <input type="number" id="rpy" value="17" min="1"> Reads per request (views, inbox, balance) <input type="number" id="rd" value="30" min="1"></div>
+<div class="out" id="capout"></div></div>
+<script>
+(function(){const g=id=>document.getElementById(id);function u(){const e=+g('emp').value,r=+g('rpy').value,d=+g('rd').value;const wr=e*r;const perDayWr=wr/260;const rds=wr*d;const perSecPeak=(rds/260/8/3600)*5;g('capout').innerHTML='<b>'+wr.toLocaleString()+'</b> write requests a year ≈ <b>'+perDayWr.toFixed(1)+'</b> a working day.<br><b>'+rds.toLocaleString()+'</b> reads a year; at a 5× peak over 8 working hours ≈ <b>'+perSecPeak.toFixed(3)+'</b> reads per second.<br>'+(perSecPeak<10?'<span class="good">One small API instance and one database are enough.</span> Do not add microservices.':'<span class="bad">Consider caching and several API instances.</span>')}['emp','rpy','rd'].forEach(i=>g(i).oninput=u);u()})();
+</script>
+<p>With the real target (5,000 requests a year) the LMS is tiny. That number, not fashion, is why the HLD chose a <b>modular monolith</b>. Change the sliders to 30,000 employees to see when the answer starts to change.</p>
+
+<h2>User stories and acceptance criteria</h2>
+<p>A user story is <i>As a [role] I want [goal] so that [value]</i> with <b>Given / When / Then</b> tests. The MVP has 12 stories in Jira epic SCRUM-7; examples:</p>
+<table><tr><th>Story</th><th>One acceptance test</th></tr>
+<tr><td>US-01 Sign in and see only what my role allows (BR-01)</td><td>Given I am an Employee, when I call an Admin-only endpoint, then I get 403 and the attempt is audited</td></tr>
+<tr><td>US-03 Apply for leave, counting working days (BR-03)</td><td>Given Friday to Tuesday with a Monday holiday, when I preview, then 2 working days are counted</td></tr>
+<tr><td>US-05 Block invalid requests</td><td>Given I already have leave on that day, when I submit, then 409 <code>leave_overlap</code></td></tr>
+<tr><td>US-07 Approve or reject</td><td>Given a rejection without a comment, then it is refused (422 <code>comment_required</code>)</td></tr></table>
+
+<h2>Your turn: three habits</h2>
+<ol><li>For every feature ask: <b>who</b> needs it, <b>why</b> (business need), <b>how well</b> (NFR), <b>what if it fails</b>?</li>
+<li>Write a rule as a test sentence before you design it.</li>
+<li>Always say what you leave out and why (<i>"payroll integration is a Won't for the MVP"</i>). That is how seniors show judgement.</li></ol>
+
+<div class="quiz"><div class="q" data-a="2"><b>"The page must load quickly" is…</b><button class="opt">A good NFR</button><button class="opt">A functional requirement</button><button class="opt">Not yet a requirement: it is not measurable</button><div class="why">Rewrite: dashboard interactive in under 2.5 s on a 4G profile, measured by Lighthouse.</div></div>
+<div class="q" data-a="1"><b>BR-05 (approve with comment) belongs to which MoSCoW class?</b><button class="opt">Could</button><button class="opt">Must</button><button class="opt">Won't</button><div class="why">It is the core purpose of the system.</div></div></div>
+</div><div class="pager"><a href="00-start.html">← Start here</a><a href="02-method.html">The design method →</a></div></main></div>
+<script src="assets/study.js"></script></body></html>

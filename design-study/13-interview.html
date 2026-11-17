@@ -1,0 +1,96 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Interview kit · LMS Design Study</title><meta name="description" content="25+ questions, a 45-minute mock plan, quiz, glossary and exercises">
+<link rel="stylesheet" href="assets/study.css"></head><body>
+<div class="menu"><button class="b g" id="menuBtn">☰ Pages</button></div>
+<div class="layout"><nav class="side"><h2>System Design</h2><small>HLD, LLD, database, with the LMS</small><div class="bar"><i></i></div><a data-page="00-start.html" href="00-start.html">Start here</a><a data-page="01-requirements.html" href="01-requirements.html">Requirements</a><a data-page="02-method.html" href="02-method.html">The design method</a><a data-page="03-hld.html" href="03-hld.html">HLD</a><a data-page="04-hld-patterns.html" href="04-hld-patterns.html">HLD patterns (live demos)</a><a data-page="05-lld.html" href="05-lld.html">LLD</a><a data-page="06-database.html" href="06-database.html">Database design</a><a data-page="07-database-deep.html" href="07-database-deep.html">Database deep dive</a><a data-page="08-api.html" href="08-api.html">API design</a><a data-page="09-nfr-scaling.html" href="09-nfr-scaling.html">NFRs and scaling</a><a data-page="10-security.html" href="10-security.html">Security and privacy</a><a data-page="11-patterns.html" href="11-patterns.html">Architect&#x27;s pattern catalog</a><a data-page="12-new-systems.html" href="12-new-systems.html">Design new systems</a><a data-page="13-interview.html" href="13-interview.html" class="cur">Interview kit</a><p><button class="b g" id="themeBtn">Light / dark</button></p></nav>
+<main><div class="reveal"><h1>Interview kit: from entry level to senior and architect</h1>
+<p class="lead">Seniors are not judged on knowing more tools. They are judged on <b>trade-offs, failure thinking, numbers and clear communication</b>.</p>
+
+<h2>What changes from junior to senior to architect</h2>
+<table><tr><th>Level</th><th>Answers…</th><th>LMS example</th></tr>
+<tr><td>Junior</td><td>"How do I implement it?"</td><td>"Use a unique index."</td></tr>
+<tr><td>Senior</td><td>"Why this, what are the trade-offs, what fails?"</td><td>"A unique day table makes overlap impossible even under concurrency; the price is two rows a working day and a copied EmployeeId guarded by a composite FK."</td></tr>
+<tr><td>Architect</td><td>"What does this mean for teams, cost, evolution and risk?"</td><td>"Modular monolith now; schemas mark future service borders; outbox lets us add RabbitMQ without changing the request path; revisit at X."</td></tr></table>
+
+<h2>Model questions (click to open)</h2>
+<div id="qa"></div>
+<script>
+(function(){const Q=[
+['HLD','Walk me through the architecture of a system you built.','Context: employees, managers, HR, admins use the LMS; it emails and (later) uses Entra ID. Containers: Angular web, ASP.NET Core API (modular monolith with four modules), SQL Server including the outbox, a background worker. Apply leave: one transaction saves request, days, balance, ledger, audit and outbox; email is sent later. I chose the monolith because 5,000 requests a year need no independent scaling.'],
+['HLD','Why not microservices?','One team, one database, about 20 writes a day, and apply must change request, balance and audit atomically. Microservices would add network failures and distributed transactions for no scaling benefit. I would extract a module only if it needed its own scale or release cycle.'],
+['HLD','Explain the outbox pattern and its weakness.','Save the business change and a message row in one transaction; a worker sends later. It cannot lose or invent a message. Weakness: delivery is at least once, so the consumer must dedupe (ProcessedMessage).'],
+['HLD','What would you cache, and what never?','Cache leave types and holidays: read often, change rarely. Never balances or requests: they change on every approval and a stale value gives a wrong decision. Watch invalidation and stampede (HybridCache).'],
+['HLD','How would you scale this to 30,000 employees?','Measure first. Fix indexes, cache reference data, make sure the API is stateless and run several instances, move notifications to RabbitMQ, read replica for HR reports, partition audit and outbox. Extract notifications or reporting only if measurements demand it.'],
+['HLD','How do you make sure an email is sent once?','I cannot guarantee exactly once across systems. I guarantee at least once with the outbox and make the sender idempotent with ProcessedMessage(Consumer, MessageId), so the effect is once.'],
+['LLD','How did you design the business rules?','Pure functions in the Domain (LeaveRules, WorkingDayCalculator): inputs in, first violation out, no clock or database. Numbers come from the LeaveType row so Admin can change them. Tests need no setup.'],
+['LLD','How do you handle time in tests?','The Domain has no clock. "Today" is an input, from an IClock port. Tests pass a fixed date or a FakeClock.'],
+['LLD','Result or exception for business failures?','Result with a code for expected rule failures (cheap, no stack trace). Exceptions for bugs. Database errors for races (2601 unique, concurrency) are caught and mapped to 409.'],
+['LLD','Explain dependency injection and why it matters.','A class asks for interfaces in its constructor; the composition root wires real classes once. It lets Application define ILeaveApplicationStore while Infrastructure implements it, so the rules never depend on EF Core.'],
+['LLD','How would you add a new rule: max 2 casual requests a month?','Column on LeaveType, new violation in LeaveRules with the count passed in as input, reader interface for the count, a pure unit test, map to a 422 code. No endpoint or EF change in the rule.'],
+['LLD','Why a state machine?','Illegal moves become impossible and the allowed moves are documented as data: Pending to Approved, Rejected, Cancelled; Approved to Cancelled; the rest are terminal.'],
+['DB','How did you model the leave balance?','Ledger plus a guarded balance row. The ledger is immutable history; Available is the fast copy with CHECK Available >= 0 and a conditional UPDATE. Both are written in one transaction, and a reconciliation query proves they agree.'],
+['DB','How do you prevent overlapping leave?','LeaveRequestDay has one row per working half-day with a unique index on (EmployeeId, LeaveDate, Slot). A second overlapping request violates the index and gets 409, even under concurrency. The code also pre-checks for a friendly message.'],
+['DB','Why int identity and not GUID keys?','Small, fast joins and indexes. Cost: guessable ids, so every endpoint checks ownership. GUIDs fragment a clustered index unless sequential.'],
+['DB','What is a covering index? A filtered index?','Covering: includes all columns a query needs, so no table lookup (my requests list). Filtered: indexes only rows matching a predicate (Pending requests), so it stays tiny.'],
+['DB','Optimistic or pessimistic concurrency?','Optimistic for approvals: rowversion becomes an ETag, the write sends If-Match, a mismatch returns 409. Conflicts are rare so locking would cost more.'],
+['DB','How do you change a schema without downtime?','Expand then contract: add the new column, deploy code that writes both, copy data, then drop the old one in a later migration. Never edit an applied migration; read the generated SQL.'],
+['DB','SQL or NoSQL?','SQL: strong consistency, multi-row transactions, constraints that enforce rules, ad-hoc reports. NoSQL fits huge write volume or flexible schema, which the LMS does not have.'],
+['API','Design the API for approving a request.','POST /api/v1/leave-requests/{id}/approve with If-Match; caller from the token; 200 with the new ETag; 404 if not visible; 403 if role never allows; 409 stale_version; 422 for a rule failure. Action endpoint because it has side effects: balance, audit, email.'],
+['API','400, 401, 403, 404, 409, 422?','400 bad shape; 401 unknown caller; 403 known but role never allowed; 404 missing or not visible; 409 clashes with current state; 422 a business rule refuses.'],
+['API','How do you make POST safe to retry?','Idempotency-Key header. The server stores key, body hash and response; a repeat returns the saved response; same key with a different body is 422.'],
+['Security','How do you secure the API?','Token validation, deny-by-default policy, role policies, ownership checks, caller from the token, server-side validation, rate limiting, no internal details in errors, immutable audit.'],
+['Security','Where do you store the token in the SPA?','Memory in Dev mode, sessionStorage in Entra mode, BFF with HttpOnly cookies as the production upgrade. localStorage is readable by injected script.'],
+['Trade-off','What would you change if you started again?','Generate the OpenAPI client earlier, add integration tests with a SQL Server container from the start, and align API paths with the design (/api/v1) before building more endpoints.']];
+const el=document.getElementById('qa');Q.forEach(q=>{const d=document.createElement('details');d.innerHTML='<summary><span class="tag">'+q[0]+'</span>'+q[1]+'</summary><p>'+q[2]+'</p>';el.appendChild(d)})})();
+</script>
+
+<h2>The 45-minute mock design interview</h2>
+<table><tr><th>Minute</th><th>You do</th><th>Phrase</th></tr>
+<tr><td>0 to 5</td><td>Clarify scope</td><td>"Before I design, may I confirm users, scale and what is out of scope?"</td></tr>
+<tr><td>5 to 10</td><td>FR + NFR with numbers</td><td>"I will treat X as the hard requirement."</td></tr>
+<tr><td>10 to 13</td><td>Estimate</td><td>"That is about N requests per second, so…"</td></tr>
+<tr><td>13 to 18</td><td>API sketch</td><td>"These five calls cover the use cases."</td></tr>
+<tr><td>18 to 26</td><td>Data model with constraints</td><td>"The database must refuse Y by itself."</td></tr>
+<tr><td>26 to 34</td><td>HLD, trace one request</td><td>"The user waits only for these steps."</td></tr>
+<tr><td>34 to 43</td><td>Deep dive: failures and scale</td><td>"If this crashes here, X still holds because…"</td></tr>
+<tr><td>43 to 45</td><td>Summary and revisit triggers</td><td>"I would revisit when…"</td></tr></table>
+
+<h2>Quick quiz</h2>
+<p id="score">Answered 0/6</p>
+<div class="quiz">
+<div class="q" data-a="1"><b>What makes overlap impossible in the LMS?</b><button class="opt">A check in Angular</button><button class="opt">A unique index on LeaveRequestDay (EmployeeId, LeaveDate, Slot)</button><button class="opt">A cron job</button><div class="why">The database enforces it, even under races.</div></div>
+<div class="q" data-a="2"><b>Where do pure business rules live?</b><button class="opt">Infrastructure</button><button class="opt">Api</button><button class="opt">Domain</button><div class="why">Domain depends on nothing; Application depends on Domain.</div></div>
+<div class="q" data-a="0"><b>Why is the email sent from an outbox?</b><button class="opt">So the request and the email note commit atomically</button><button class="opt">To slow requests</button><button class="opt">Because SMTP needs it</button><div class="why">No lost or invented message.</div></div>
+<div class="q" data-a="1"><b>What is DaysCount on a request?</b><button class="opt">A computed view</button><button class="opt">A snapshot taken at submit</button><button class="opt">A cache</button><div class="why">History must not change when rules change.</div></div>
+<div class="q" data-a="2"><b>First step in any design interview?</b><button class="opt">Choose a database</button><button class="opt">Draw boxes</button><button class="opt">Clarify scope and requirements</button><div class="why">Requirements and numbers decide the shape.</div></div>
+<div class="q" data-a="0"><b>Which data should NOT be cached in the LMS?</b><button class="opt">Balances</button><button class="opt">Holidays</button><button class="opt">Leave types</button><div class="why">Balances change on every approval.</div></div></div>
+
+<h2>Paper exercises (do them without looking)</h2>
+<ol><li>Draw the LMS containers and trace the apply request (10 min).</li><li>Draw the six core tables with PKs, FKs and the three DB-enforced rules (15 min).</li><li>Write the API calls for preview, submit, list, inbox, approve, cancel with headers (15 min).</li><li>Draw the state machine and list who may make each move (5 min).</li><li>Pick a new system (library, clinic, parking) and run the 7-step method in 30 minutes.</li></ol>
+
+<h2>Glossary</h2>
+<table><tr><th>Term</th><th>Plain meaning</th></tr>
+<tr><td>ACID</td><td>Atomic, Consistent, Isolated, Durable transactions</td></tr>
+<tr><td>ADR</td><td>Short record of a design decision and its trade-off</td></tr>
+<tr><td>At-least-once</td><td>May deliver twice, never zero</td></tr>
+<tr><td>Cache-aside</td><td>Look in cache, else database, then store</td></tr>
+<tr><td>C4</td><td>Context, Container, Component, Code diagrams</td></tr>
+<tr><td>CQRS</td><td>Separate read and write models</td></tr>
+<tr><td>Denormalization</td><td>Deliberate copy of data for a reason</td></tr>
+<tr><td>ETag / If-Match</td><td>Version token for optimistic concurrency</td></tr>
+<tr><td>Idempotent</td><td>Repeating gives the same result</td></tr>
+<tr><td>Keyset paging</td><td>Page by "after this id" instead of offset</td></tr>
+<tr><td>Ledger</td><td>Append-only list of changes</td></tr>
+<tr><td>Modular monolith</td><td>One deployable app with clear module borders</td></tr>
+<tr><td>NFR</td><td>How well: speed, safety, uptime</td></tr>
+<tr><td>Outbox</td><td>Message row saved with the data, sent later</td></tr>
+<tr><td>p95</td><td>95 % of requests are faster than this</td></tr>
+<tr><td>Pure function</td><td>Same input, same output, no side effects</td></tr>
+<tr><td>RPO / RTO</td><td>Data you may lose / time you may be down</td></tr>
+<tr><td>Saga</td><td>Chain of local transactions with compensations</td></tr>
+<tr><td>Stateless</td><td>Server keeps no per-user memory between calls</td></tr></table>
+
+<h2>Teach-back (say each aloud for two minutes)</h2>
+<ol><li>Why is the LMS a modular monolith, and what would make you split it?</li><li>How does the design guarantee a balance never goes negative, even under concurrent requests?</li><li>What happens if the server crashes right after a leave request is saved?</li></ol>
+</div><div class="pager"><a href="12-new-systems.html">← Design new systems</a><span></span></div></main></div>
+<script src="assets/study.js"></script></body></html>
